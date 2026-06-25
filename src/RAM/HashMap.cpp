@@ -45,7 +45,7 @@ int HashMap::hashFunction(std::string key)
     for (char c : key)
     {
         // The hash function chose is H = 31 * H-1 + C
-        hashValue = (p * hashValue) + c;
+        hashValue += (p * hashValue) + c;
     }
 
     // Make sure not go beyond the scope
