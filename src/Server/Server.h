@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <string>
 #include <atomic>
+#include "../RAM/HashMap.h"
+#include "../Storage/Persistence.h"
 
 /**
  * @brief TCP server that listens for client connections
@@ -13,11 +15,14 @@
 class Server
 {
 private:
-    SOCKET serverSocket;    ///< The main listening socket
-    sockaddr_in serverAddr; ///< Server address structure
-    int port;               ///< Port the server listens on
+    SOCKET serverSocket;    /**< The main listening socket */
+    sockaddr_in serverAddr; /**< Server address structure */
+    int port;               /**< Port the server listens on */
 
-    std::atomic<bool> running; ///< Controls whether the server is running
+    std::atomic<bool> running; /**< Controls whether the server is running */
+
+    HashMap hashMap;  /** Server owns an instance of the hashmap */
+    Persistence pers; /** Server owns an instance of persistance class */
 
 public:
     /**

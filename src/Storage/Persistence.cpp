@@ -26,37 +26,35 @@ Persistence::~Persistence()
 
 void Persistence::loadDataOnStartup(HashMap &hashmap)
 {
-    // Load data from RDB
+    // Load data from RDB (only if it exists)
     std::filesystem::path targetPath(rdb_path);
+    if (std::filesystem::exists(targetPath))
+    {
+        std::ifstream rdb_stream(rdb_path);
+        if (!rdb_stream.is_open())
+        {
+            throw std::runtime_error("[PERSISTENCE] Error opening RDB file\n");
+        }
+        std::string line;
+        while (std::getline(rdb_stream, line))
+        {
+            std::istringstream iss(line);
+            std::string command, key, value;
+            iss >> command >> key >> value;
+            hashmap.insert(key, value);
+        }
+        rdb_stream.close();
+    }
+    else
+    {
+        std::cout << "[PERSISTENCE] No RDB snapshot found, skipping.\n";
+    }
 
-    // Explicitly checks if the file is present on disk
-    if (!std::filesystem::exists(targetPath))
-    {
-        std::cout << "[PERSISTENCE] Path not found.\n";
-        return;
-    }
-    std::ifstream rdb_stream(rdb_path);
-    if (!rdb_stream.is_open())
-    {
-        throw std::runtime_error("[PERSISTENCE] Error opening RDB file\n");
-    }
-    std::string line;
-    while (std::getline(rdb_stream, line))
-    {
-        std::istringstream iss(line);
-        std::string command, key, value;
-        iss >> command >> key >> value;
-        hashmap.insert(key, value);
-    }
-    rdb_stream.close();
-
-    // Load data from AOF
+    // Load data from AOF (only if it exists)
     std::filesystem::path targetPath2(aof_path);
-
-    // Explicitly checks if the file is present on disk
     if (!std::filesystem::exists(targetPath2))
     {
-        std::cout << "[PERSISTENCE] Path not found.\n";
+        std::cout << "[PERSISTENCE] No AOF log found, skipping.\n";
         return;
     }
 
@@ -65,6 +63,7 @@ void Persistence::loadDataOnStartup(HashMap &hashmap)
     {
         throw std::runtime_error("[PERSISTENCE] Error opening AOF file\n");
     }
+    std::string line;
     while (std::getline(aof_read_stream, line))
     {
         std::istringstream iss(line);

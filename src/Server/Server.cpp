@@ -65,6 +65,9 @@ void Server::start()
     }
 
     std::cout << "[SERVER] Server is now accepting connections!\n";
+
+    // Start persistence
+    pers.loadDataOnStartup(hashMap);
 }
 
 void Server::acceptClients()
@@ -138,13 +141,15 @@ void Server::messageHandler(SOCKET clientSocket)
     std::cout << "[CLIENT] Command: " << command << "\n";
     std::cout << "[CLIENT] Key: " << key << "\n";
 
-    // TODO add the function to commands
     if (command == "INSERT")
     {
         iss >> value;
 
         std::cout << "[SERVER] INSERT request received\n";
         std::cout << "[SERVER] Value: " << value << "\n";
+
+        hashMap.insert(key, value);
+        pers.appendToLog(command, key, value);
 
         std::string response = "Insert command was successful";
 
@@ -154,13 +159,22 @@ void Server::messageHandler(SOCKET clientSocket)
     {
         std::cout << "[SERVER] GET request received\n";
 
-        std::string response = "Get command was successful";
+        std::string resultGet = hashMap.get(key);
+
+        std::string response;
+        if (resultGet != "")
+            response = "Get command was successful: " + resultGet;
+        else
+            response = "Get command was successful but key dont exist";
 
         send(clientSocket, response.c_str(), response.length(), 0);
     }
     else if (command == "DELETE")
     {
         std::cout << "[SERVER] DELETE request received\n";
+
+        hashMap.remove(key);
+        pers.appendToLog(command, key, "");
 
         std::string response = "Delete command was successful";
 
