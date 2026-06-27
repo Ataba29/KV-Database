@@ -113,3 +113,16 @@ void HashMap::remove(std::string key)
     }
     // If this line was reached then there is nothing to delete
 }
+
+void HashMap::forEach(std::function<void(const std::string &, const std::string &)> callback) const
+{
+    for (int i = 0; i < capacity; i++)
+    {
+        Node *current = table[i];
+        while (current != nullptr)
+        {
+            callback(current->key, current->value);
+            current = current->next;
+        }
+    }
+}
