@@ -3,6 +3,7 @@
 #include <sstream>
 #include <filesystem>
 #include <vector>
+#include <thread>
 
 Persistence::Persistence()
 {
@@ -85,18 +86,50 @@ void Persistence::loadDataOnStartup(HashMap &hashmap)
 
 void Persistence::appendToLog(const std::string &command, const std::string &key, const std::string &value)
 {
+    std::lock_guard<std::mutex> lock(aof_mutex);
     aof_stream << command + " " + key + " " + value << std::endl;
 }
 
 void Persistence::createSnapshot(const HashMap &hashmap)
 {
+    std::cout << "[SNAPSHOT] createSnapshot called from thread: " << std::this_thread::get_id() << "\n";
+
     std::ofstream rdb_write_stream(rdb_path, std::ios::out | std::ios::trunc);
     if (!rdb_write_stream.is_open())
     {
         throw std::runtime_error("[PERSISTENCE] Error opening RDB file for snapshot\n");
     }
-    // For each key-value pair that are found inside the hashmap write into the rdb INSERT KEY VALUE\n
+
+    std::cout << "[SNAPSHOT] RDB file opened...\n";
+
     hashmap.forEach([&rdb_write_stream](const std::string &key, const std::string &value)
                     { rdb_write_stream << "INSERT " + key + " " + value << std::endl; });
+
     rdb_write_stream.close();
+
+    std::cout << "[SNAPSHOT] RDB file closed...\n";
+
+    std::lock_guard<std::mutex> lock(aof_mutex);
+
+    std::cout << "[SNAPSHOT] AOF mutex locked...\n";
+
+    aof_stream.flush();
+    aof_stream.close();
+
+    std::cout << "[SNAPSHOT] AOF closed...\n";
+
+    std::filesystem::resize_file(aof_path, 0);
+
+    std::cout << "[SNAPSHOT] AOF truncated...\n";
+
+    aof_stream.open(aof_path, std::ios::out | std::ios::app);
+
+    std::cout << "[SNAPSHOT] AOF reopened...\n";
+
+    if (!aof_stream.is_open())
+    {
+        throw std::runtime_error("[PERSISTENCE] Error opening AOF file\n");
+    }
+
+    std::cout << "[SNAPSHOT] Snapshot complete.\n";
 }

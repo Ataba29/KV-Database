@@ -3,10 +3,9 @@
 #include <thread>
 #include <sstream>
 
-Server::Server(int port)
-    : port(port),
-      serverSocket(INVALID_SOCKET),
-      running(true)
+Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
+                           ss([this]()
+                              { pers.createSnapshot(hashMap); })
 {
     std::cout << "[SERVER] Starting server...\n";
 
@@ -34,6 +33,8 @@ Server::Server(int port)
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
     std::cout << "[SERVER] Configured server on port " << port << "\n";
+
+    running = true;
 }
 
 Server::~Server()

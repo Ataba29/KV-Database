@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(src/RAM src/Server src/Storage src/Worker)
 
 # Build the executable
-add_executable(KV_Database src/main.cpp src/RAM/HashMap.cpp src/Server/Server.cpp src/Storage/Persistence.cpp src/Worker/Threadpool.cpp)
+add_executable(KV_Database src/main.cpp src/RAM/HashMap.cpp src/Server/Server.cpp src/Storage/Persistence.cpp src/Worker/Threadpool.cpp src/Worker/SnapshotScheduler.cpp)
 
 # Add socket lib
 target_link_libraries(KV_Database ws2_32)

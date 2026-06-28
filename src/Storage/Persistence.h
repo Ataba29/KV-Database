@@ -3,6 +3,7 @@
 
 #include <string>
 #include <fstream>
+#include <mutex>
 #include "../RAM/Hashmap.h"
 
 /**
@@ -18,6 +19,7 @@ private:
     std::ofstream aof_stream;                      /**< Persistent file stream handle for real-time logging. */
     const std::string aof_path = "appendonly.log"; /**< File path for the transaction log file. */
     const std::string rdb_path = "snapshot.log";   /**< File path for the point-in-time snapshot file. */
+    std::mutex aof_mutex;                          /**< Protects aof_stream from concurrent access. */
 
 public:
     /**
@@ -62,7 +64,8 @@ public:
      * @brief Takes a full point-in-time snapshot of the database.
      *
      * Serializes the current, entire contents of the in-memory HashMap and
-     * overrides the existing `snapshot.rdb` file with this new baseline state.
+     * overrides the existing `snapshot.rdb` file with this new baseline state,
+     * and reopens the AOF file while resetting it.
      *
      * @note This operation can be resource-heavy and should ideally be scheduled or offloaded.
      * @param hashmap A constant reference to the in-memory HashMap data source.

@@ -1,10 +1,12 @@
 #ifndef SNAPSHOTSCHEDULER_H
 #define SNAPSHOTSCHEDULER_H
 
+#include <mutex>
 #include <thread>
 #include <atomic>
 #include <chrono>
 #include <functional>
+#include <condition_variable>
 
 /**
  * @brief Runs a background thread that triggers RDB snapshots on a fixed interval.
@@ -16,7 +18,8 @@ private:
     std::atomic<bool> active;               /**< Controls whether the scheduler is running. */
     std::function<void()> snapshotCallback; /**< The snapshot function to call every interval. */
     std::chrono::minutes interval;          /**< How often to take a snapshot. */
-
+    std::condition_variable cv;             /**< Bell that wakes up sleeping workers. */
+    std::mutex m;                           /**< Required by condition_variable for wait_for to work. */
     /**
      * @brief The main loop that sleeps then triggers a snapshot.
      */
@@ -28,7 +31,8 @@ public:
      * @param snapshotCallback The function to call to create a snapshot.
      * @param intervalMinutes How often to snapshot in minutes (default: 5).
      */
-    SnapshotScheduler(std::function<void()> snapshotCallback, int intervalMinutes = 5);
+    // TODO change back to 5 minutes
+    SnapshotScheduler(std::function<void()> snapshotCallback, int intervalMinutes = 1);
 
     /**
      * @brief Stops the scheduler and joins the background thread.

@@ -1,6 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <stdexcept>
 #include <string>
@@ -8,6 +9,7 @@
 #include "../RAM/HashMap.h"
 #include "../Storage/Persistence.h"
 #include "../Worker/ThreadPool.h"
+#include "../Worker/SnapshotScheduler.h"
 
 /**
  * @brief TCP server that listens for client connections
@@ -22,9 +24,10 @@ private:
 
     std::atomic<bool> running; /**< Controls whether the server is running */
 
-    HashMap hashMap;  /** Server owns an instance of the hashmap */
-    Persistence pers; /** Server owns an instance of persistance class */
-    ThreadPool tpool; /** Server owns an instance of ThreadPool class */
+    HashMap hashMap;      /** Server owns an instance of the hashmap */
+    Persistence pers;     /** Server owns an instance of persistance class */
+    ThreadPool tpool;     /** Server owns an instance of ThreadPool class */
+    SnapshotScheduler ss; /** Server owns an instance of SnapshotScheduler class */
 
 public:
     /**
