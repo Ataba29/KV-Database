@@ -94,8 +94,9 @@ void Server::acceptClients()
 
         std::cout << "[SERVER] Client connected!\n";
 
-        // TODO use thread pool and not detach
-        std::thread(&Server::messageHandler, this, AcceptSocket).detach();
+        // Use threadpool and add a job to a thread to listen to a client
+        tpool.acceptJob([this, AcceptSocket]()
+                        { this->messageHandler(AcceptSocket); });
 
         std::cout << "[SERVER] Created client thread\n";
     }

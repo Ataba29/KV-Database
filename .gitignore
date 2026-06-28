@@ -10,7 +10,7 @@ cmake_install.cmake
 Makefile
 
 # ==========================================
-# Compiled Executables and Libraries
+# Compiled Executables and Libraries and Logs
 # ==========================================
 *.exe
 *.out
@@ -18,6 +18,7 @@ Makefile
 *.dll
 *.so
 *.dylib
+*.log
 
 # ==========================================
 # IDE Specific folders (Optional but recommended)

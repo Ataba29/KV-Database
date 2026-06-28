@@ -7,6 +7,7 @@
 #include <atomic>
 #include "../RAM/HashMap.h"
 #include "../Storage/Persistence.h"
+#include "../Worker/ThreadPool.h"
 
 /**
  * @brief TCP server that listens for client connections
@@ -23,6 +24,7 @@ private:
 
     HashMap hashMap;  /** Server owns an instance of the hashmap */
     Persistence pers; /** Server owns an instance of persistance class */
+    ThreadPool tpool; /** Server owns an instance of ThreadPool class */
 
 public:
     /**
