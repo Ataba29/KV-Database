@@ -3,10 +3,9 @@
 #include <thread>
 #include <sstream>
 
-Server::Server(int port)
-    : port(port),
-      serverSocket(INVALID_SOCKET),
-      running(true)
+Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
+                           ss([this]()
+                              { pers.createSnapshot(hashMap); })
 {
     std::cout << "[SERVER] Starting server...\n";
 
@@ -34,6 +33,8 @@ Server::Server(int port)
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
     std::cout << "[SERVER] Configured server on port " << port << "\n";
+
+    running = true;
 }
 
 Server::~Server()
@@ -94,8 +95,9 @@ void Server::acceptClients()
 
         std::cout << "[SERVER] Client connected!\n";
 
-        // TODO use thread pool and not detach
-        std::thread(&Server::messageHandler, this, AcceptSocket).detach();
+        // Use threadpool and add a job to a thread to listen to a client
+        tpool.acceptJob([this, AcceptSocket]()
+                        { this->messageHandler(AcceptSocket); });
 
         std::cout << "[SERVER] Created client thread\n";
     }

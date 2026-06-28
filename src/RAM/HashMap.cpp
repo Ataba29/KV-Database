@@ -54,6 +54,7 @@ int HashMap::hashFunction(std::string key)
 
 void HashMap::insert(std::string key, std::string value)
 {
+    std::unique_lock<std::shared_mutex> lock(sm);
     int hashValue = hashFunction(key);
     Node *curr = table[hashValue];
     while (curr != nullptr)
@@ -72,6 +73,7 @@ void HashMap::insert(std::string key, std::string value)
 
 std::string HashMap::get(std::string key)
 {
+    std::shared_lock<std::shared_mutex> lock(sm);
     int hashValue = hashFunction(key);
     Node *curr = table[hashValue];
     while (curr != nullptr)
@@ -88,6 +90,7 @@ std::string HashMap::get(std::string key)
 
 void HashMap::remove(std::string key)
 {
+    std::unique_lock<std::shared_mutex> lock(sm);
     int hashValue = hashFunction(key);
     Node *curr = table[hashValue];
     Node *prev = nullptr;
@@ -116,6 +119,7 @@ void HashMap::remove(std::string key)
 
 void HashMap::forEach(std::function<void(const std::string &, const std::string &)> callback) const
 {
+    std::shared_lock<std::shared_mutex> lock(sm);
     for (int i = 0; i < capacity; i++)
     {
         Node *current = table[i];
