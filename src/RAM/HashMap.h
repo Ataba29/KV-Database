@@ -2,6 +2,7 @@
 #define HASHMAP_H
 
 #include <string>
+#include <functional>
 
 /**
  * @brief A custom Hash Map implementation using Separate Chaining.
@@ -78,6 +79,12 @@ public:
      * @param key The key to delete.
      */
     void remove(std::string key);
+
+    /**
+     * @brief Iterates over all key-value pairs in the map.
+     * @param callback A function to call for each key-value pair.
+     */
+    void forEach(std::function<void(const std::string &, const std::string &)> callback) const;
 };
 
 #endif
