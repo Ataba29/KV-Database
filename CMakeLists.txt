@@ -1,17 +1,57 @@
 cmake_minimum_required(VERSION 3.15)
 
-# Name your project
 project(KV_Database LANGUAGES CXX)
 
-# C++17 
+# C++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Include directories so CMake knows where to look for header files (.h)
-include_directories(src/RAM src/Server src/Storage src/Worker)
+# We must turn out core logic into a LIBRARY so both the App and the Tests can use it
+add_library(KV_Core
+    src/RAM/HashMap.cpp
+    src/Server/Server.cpp
+    src/Storage/Persistence.cpp
+    src/Worker/Threadpool.cpp
+    src/Worker/SnapshotScheduler.cpp
+)
 
-# Build the executable
-add_executable(KV_Database src/main.cpp src/RAM/HashMap.cpp src/Server/Server.cpp src/Storage/Persistence.cpp src/Worker/Threadpool.cpp src/Worker/SnapshotScheduler.cpp)
+target_include_directories(KV_Core PUBLIC 
+    src/RAM 
+    src/Server 
+    src/Storage 
+    src/Worker
+)
 
-# Add socket lib
-target_link_libraries(KV_Database ws2_32)
+# Link Windows sockets to the core library
+target_link_libraries(KV_Core PRIVATE ws2_32)
+
+# Build the main executable (it just needs main.cpp and the library)
+add_executable(KV_Database src/main.cpp)
+target_link_libraries(KV_Database PRIVATE KV_Core)
+
+
+
+# =================================================================
+# Testing Setup
+# =================================================================
+
+enable_testing()
+
+# GoogleTest setup
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/heads/main.zip
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+# add the exceutable for our tests.
+add_executable(run_tests src/Tests/test_hashmap.cpp)
+
+# Link the tests to GoogleTest
+target_link_libraries(run_tests PRIVATE gtest_main KV_Core)
+
+# Discover tests automatically
+include(GoogleTest)
+gtest_discover_tests(run_tests)
