@@ -1,6 +1,8 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <functional>
 
@@ -39,7 +41,8 @@ private:
      */
     Node **table;
 
-    int capacity; /**< The total size of the table array (number of available buckets). */
+    int capacity;                 /**< The total size of the table array (number of available buckets). */
+    mutable std::shared_mutex sm; /** A mutex that protects the hashmap from 2 writer threads writing at the same time */
 
     /**
      * @brief Converts a string key into an array index.
