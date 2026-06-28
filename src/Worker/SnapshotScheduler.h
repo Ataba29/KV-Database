@@ -31,8 +31,7 @@ public:
      * @param snapshotCallback The function to call to create a snapshot.
      * @param intervalMinutes How often to snapshot in minutes (default: 5).
      */
-    // TODO change back to 5 minutes
-    SnapshotScheduler(std::function<void()> snapshotCallback, int intervalMinutes = 1);
+    SnapshotScheduler(std::function<void()> snapshotCallback, int intervalMinutes = 5);
 
     /**
      * @brief Stops the scheduler and joins the background thread.
