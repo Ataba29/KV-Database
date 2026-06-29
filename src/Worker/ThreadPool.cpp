@@ -33,7 +33,11 @@ ThreadPool::ThreadPool(int size)
                 } // Lock is released here automatically
 
                 // Run the job OUTSIDE the lock so other threads can grab jobs simultaneously
-                job();
+                try {
+                    job();
+                } catch (const std::exception& e) {
+                    std::cout << "[THREADPOOL] Job threw exception: " << e.what() << "\n";
+                }
             } }));
     }
 }

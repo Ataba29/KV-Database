@@ -56,7 +56,7 @@ public:
      * @brief Constructs a new HashMap object.
      * @param size The total number of buckets in the hash table (default is 100).
      */
-    HashMap(int size = 100);
+    explicit HashMap(int size = 100);
 
     /**
      * @brief Destructor that safely frees all dynamically allocated memory.

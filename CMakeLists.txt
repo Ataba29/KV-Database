@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.15)
 
 project(KV_Database LANGUAGES CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # C++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,13 +44,16 @@ include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/heads/main.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP true
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 # add the exceutable for our tests.
-add_executable(run_tests src/Tests/test_hashmap.cpp)
-
+add_executable(run_tests 
+    src/Tests/test_hashmap.cpp
+    src/Tests/test_threadpool.cpp
+)
 # Link the tests to GoogleTest
 target_link_libraries(run_tests PRIVATE gtest_main KV_Core)
 
