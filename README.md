@@ -14,14 +14,18 @@ This is a personal learning project. The goal is not to build a production datab
 
 ## Features
 
-- **Custom HashMap** — hand-rolled hash table with separate chaining for collision resolution and dynamic growth
+- **Custom HashMap** — hand-rolled hash table with separate chaining for collision resolution and dynamic growth, protected by a `std::shared_mutex` for concurrent read/write safety
 - **TCP Server** — raw socket server built with Winsock2 that accepts and handles client connections
 - **Command Parser** — parses `INSERT`, `GET`, and `DELETE` commands from raw TCP bytes
+- **Thread Pool** — fixed pool of 3 worker threads handling client sessions concurrently using condition variables and mutexes
+- **Snapshot Scheduler** — background thread that automatically triggers RDB snapshots on a fixed interval
 - **Persistence** — hybrid durability layer combining:
-  - **AOF (Append-Only File)** — logs every write operation in real time
+  - **AOF (Append-Only File)** — logs every write operation in real time, reset after each snapshot
   - **RDB Snapshots** — full point-in-time dumps of the database every 5 minutes
-- **Thread Pool** — _(in progress)_ manages concurrent client sessions efficiently
-- **Docker** — _(in progress)_ containerized for consistent deployment
+- **Graceful Shutdown** — type `stop` to cleanly flush data and join all threads
+- **Docker** — _(in progress)_
+- **Rate Limiting** — _(in progress)_
+- **Authentication** — _(in progress)_
 
 ---
 
@@ -53,15 +57,31 @@ Client (ncat / custom client)
         ├──▶ Command Parser
         │         │
         │         ▼
-        │    Thread Pool (workers)
+        │    Thread Pool (3 workers)
         │         │
         │         ▼
         │    HashMap (in-memory store)
+        │    shared_mutex: readers run concurrently,
+        │    writers get exclusive access
         │
         └──▶ Persistence Layer
-                  ├── appendonly.aof  (real-time log)
-                  └── snapshot.rdb    (periodic snapshot)
+                  ├── appendonly.log  (real-time AOF log)
+                  └── snapshot.log    (periodic RDB snapshot)
+                            ▲
+                   SnapshotScheduler
+                   (background thread, every 5 min)
 ```
+
+---
+
+## Concurrency Model
+
+| Component   | Protection                               | Strategy                              |
+| ----------- | ---------------------------------------- | ------------------------------------- |
+| HashMap     | `std::shared_mutex`                      | Multiple readers, exclusive writers   |
+| AOF stream  | `std::mutex`                             | Single writer at a time               |
+| Client jobs | `ThreadPool` + `std::condition_variable` | Workers sleep until job arrives       |
+| Snapshot    | `SnapshotScheduler` thread               | Sleeps on interval, wakes on shutdown |
 
 ---
 
@@ -84,10 +104,10 @@ cmake --build build
 ### Run
 
 ```bash
-./build/KV_Database
+./build/Debug/KV_Database.exe
 ```
 
-The server starts on port `6625` by default.
+The server starts on port `6625` by default. Type `stop` in the terminal to shut it down cleanly.
 
 ---
 
@@ -103,12 +123,18 @@ kv-db/
 │   ├── RAM/
 │   │   ├── HashMap.h
 │   │   └── HashMap.cpp
-│   └── Persistence/
-│       ├── Persistence.h
-│       └── Persistence.cpp
-├── tests/
+│   ├── Storage/
+│   │   ├── Persistence.h
+│   │   └── Persistence.cpp
+│   ├── Worker/
+│   │   ├── ThreadPool.h
+│   │   ├── ThreadPool.cpp
+│   │   ├── SnapshotScheduler.h
+│   │   └── SnapshotScheduler.cpp
+│   └── Tests/
+│       ├── test_hashmap.cpp
+│       └── test_threadpool.cpp
 ├── docker/
-├── data/
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -120,12 +146,18 @@ kv-db/
 - [x] Custom HashMap with separate chaining
 - [x] TCP server with Winsock2
 - [x] Command parser (INSERT, GET, DELETE)
-- [x] AOF persistence
-- [x] RDB snapshots
-- [ ] Thread pool for concurrent clients
-- [ ] Connect persistence to live server
+- [x] AOF persistence with real-time logging
+- [x] RDB snapshots every 5 minutes
+- [x] AOF reset after each snapshot
+- [x] Thread pool for concurrent client sessions
+- [x] HashMap thread safety with shared_mutex
+- [x] Persistence thread safety with mutex
+- [x] Snapshot scheduler background thread
+- [x] Clean server shutdown
+- [x] Data recovery on restart (RDB + AOF replay)
+- [x] Unit tests with GoogleTest (HashMap + ThreadPool)
 - [ ] Docker containerization
-- [ ] Rate limiting
+- [ ] Rate limiting (DDoS protection)
 - [ ] Authentication (username + password)
 
 ---

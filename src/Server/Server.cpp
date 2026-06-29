@@ -9,20 +9,23 @@ Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
 {
     std::cout << "[SERVER] Starting server...\n";
 
+#ifdef _WIN32
     WSADATA wsaData;
-
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
     {
         throw std::runtime_error("WSAStartup Didnt Work Try Again Later!");
     }
-
     std::cout << "[SERVER] WSAStartup Successful!\n";
+#endif
 
-    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    // On Linux, IPPROTO_TCP can safely be 0 for standard streams
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 
     if (serverSocket == INVALID_SOCKET)
     {
+#ifdef _WIN32
         WSACleanup();
+#endif
         throw std::runtime_error("Failed to create socket");
     }
 
@@ -43,7 +46,9 @@ Server::~Server()
 
     stop();
 
+#ifdef _WIN32
     WSACleanup();
+#endif
 
     std::cout << "[SERVER] Cleanup complete\n";
 }
@@ -67,7 +72,6 @@ void Server::start()
 
     std::cout << "[SERVER] Server is now accepting connections!\n";
 
-    // Start persistence
     pers.loadDataOnStartup(hashMap);
 }
 
@@ -77,16 +81,14 @@ void Server::acceptClients()
     {
         std::cout << "[SERVER] Waiting for client...\n";
 
-        SOCKET AcceptSocket = accept(serverSocket, NULL, NULL);
+        SocketType AcceptSocket = accept(serverSocket, NULL, NULL);
 
-        // If server is stopping, exit cleanly
         if (!running)
         {
             std::cout << "[SERVER] Server stopping, exiting accept loop\n";
             break;
         }
 
-        // Real accept error
         if (AcceptSocket == INVALID_SOCKET)
         {
             std::cout << "[SERVER] Accept failed (or socket closed)\n";
@@ -95,7 +97,6 @@ void Server::acceptClients()
 
         std::cout << "[SERVER] Client connected!\n";
 
-        // Use threadpool and add a job to a thread to listen to a client
         tpool.acceptJob([this, AcceptSocket]()
                         { this->messageHandler(AcceptSocket); });
 
@@ -111,23 +112,25 @@ void Server::stop()
 
     running = false;
 
-    // This forces accept() to unblock
-    closesocket(serverSocket);
+    // Forces accept() loop to unblock by breaking the file descriptor channel
+    CloseSocket(serverSocket);
 
     std::cout << "[SERVER] Server socket closed, shutdown signal sent\n";
 }
 
-void Server::messageHandler(SOCKET clientSocket)
+void Server::messageHandler(SocketType clientSocket)
 {
     std::cout << "[CLIENT] Handling client message\n";
 
     char buffer[1024];
+
+    // On Linux, the buffer is safely passed to standard recv
     int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
 
     if (bytesReceived <= 0)
     {
         std::cout << "[CLIENT] Client disconnected or error\n";
-        closesocket(clientSocket);
+        CloseSocket(clientSocket);
         return;
     }
 
@@ -154,7 +157,6 @@ void Server::messageHandler(SOCKET clientSocket)
         pers.appendToLog(command, key, value);
 
         std::string response = "Insert command was successful";
-
         send(clientSocket, response.c_str(), response.length(), 0);
     }
     else if (command == "GET")
@@ -179,7 +181,6 @@ void Server::messageHandler(SOCKET clientSocket)
         pers.appendToLog(command, key, "");
 
         std::string response = "Delete command was successful";
-
         send(clientSocket, response.c_str(), response.length(), 0);
     }
     else
@@ -187,11 +188,9 @@ void Server::messageHandler(SOCKET clientSocket)
         std::cout << "[SERVER] Unknown command received\n";
 
         std::string response = "No command was received";
-
         send(clientSocket, response.c_str(), response.length(), 0);
     }
 
     std::cout << "[CLIENT] Closing connection\n";
-
-    closesocket(clientSocket);
+    CloseSocket(clientSocket);
 }

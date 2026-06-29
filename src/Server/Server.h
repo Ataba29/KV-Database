@@ -1,8 +1,29 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+// --- Cross-Platform Networking Layers ---
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
+#include <ws2tcpip.h>
+
+// Use type aliases to match native Windows paradigms cleanly
+using SocketType = SOCKET;
+inline int CloseSocket(SocketType s) { return closesocket(s); }
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+// Define standard POSIX elements to match the unified implementation API
+using SocketType = int;
+inline int CloseSocket(SocketType s) { return close(s); }
+
+const SocketType INVALID_SOCKET = -1;
+const int SOCKET_ERROR = -1;
+#endif
+
 #include <stdexcept>
 #include <string>
 #include <atomic>
@@ -18,9 +39,9 @@
 class Server
 {
 private:
-    SOCKET serverSocket;    /**< The main listening socket */
-    sockaddr_in serverAddr; /**< Server address structure */
-    int port;               /**< Port the server listens on */
+    SocketType serverSocket; /**< The main listening socket */
+    sockaddr_in serverAddr;  /**< Server address structure */
+    int port;                /**< Port the server listens on */
 
     std::atomic<bool> running; /**< Controls whether the server is running */
 
@@ -61,7 +82,7 @@ public:
      * @brief Handles communication with a connected client.
      * @param clientSocket The socket returned by accept().
      */
-    void messageHandler(SOCKET clientSocket);
+    void messageHandler(SocketType clientSocket);
 
     /**
      * @brief Forwards a parsed command to the thread pool workers.
