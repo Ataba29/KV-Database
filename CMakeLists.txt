@@ -13,7 +13,7 @@ add_library(KV_Core
     src/RAM/HashMap.cpp
     src/Server/Server.cpp
     src/Storage/Persistence.cpp
-    src/Worker/Threadpool.cpp
+    src/Worker/ThreadPool.cpp
     src/Worker/SnapshotScheduler.cpp
 )
 
