@@ -3,7 +3,7 @@
 #include <atomic>
 #include <vector>
 #include <chrono>
-#include "../Worker/Threadpool.h"
+#include "../Worker/ThreadPool.h"
 
 // Test 1: Basic job execution
 TEST(ThreadPoolTests, ExecutesSingleJob)
