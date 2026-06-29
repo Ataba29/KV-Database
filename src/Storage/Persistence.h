@@ -4,7 +4,7 @@
 #include <string>
 #include <fstream>
 #include <mutex>
-#include "../RAM/Hashmap.h"
+#include "../RAM/HashMap.h"
 
 /**
  * @brief Manages the disk storage layer for the Key-Value database.
