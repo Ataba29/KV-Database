@@ -58,6 +58,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(run_tests 
     src/Tests/test_hashmap.cpp
     src/Tests/test_threadpool.cpp
+    src/Tests/test_ratelimiter.cpp
 )
 
 # Link the tests to GoogleTest and KV_Core
