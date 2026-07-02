@@ -1,0 +1,25 @@
+name: KV-DB CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ============================
+      # Build inside Docker (realistic environment)
+      # ============================
+      - name: Build Docker image
+        run: docker build -t kv-db .
+
+      # ============================
+      # Run tests inside container
+      # ============================
+      - name: Run unit tests (ctest)
+        run: docker run --rm kv-db ctest --output-on-failure
