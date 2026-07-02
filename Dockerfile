@@ -19,7 +19,7 @@ COPY . .
 
 # Run CMake and build the database
 RUN cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build
+    cmake --build build --target KV_Database
 
 # ==========================================
 # Stage 2: Minimal Runtime (Production-grade)
