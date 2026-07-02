@@ -52,14 +52,10 @@ bool RateLimiter::isAllowedPrivate(const std::string &ip)
     std::lock_guard<std::mutex> lock(mapMutex);
 
     // create bucket for new IP
-    if (ipRecords.find(ip) == ipRecords.end())
-    {
-        ipRecords[ip] = {
-            maxTokens,
-            now};
-    }
+    auto [it, inserted] =
+        ipRecords.try_emplace(ip, IPRecord{maxTokens, now});
 
-    IPRecord &record = ipRecords[ip];
+    IPRecord &record = it->second;
 
     // calculate refill amount
     double seconds =
