@@ -19,7 +19,8 @@ COPY . .
 
 # Run CMake and build the database
 RUN cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build
+    cmake --build build && \
+    cd build && ctest --output-on-failure
 
 # ==========================================
 # Stage 2: Minimal Runtime (Production-grade)
