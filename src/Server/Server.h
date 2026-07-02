@@ -31,6 +31,7 @@ const int SOCKET_ERROR = -1;
 #include "../Storage/Persistence.h"
 #include "../Worker/ThreadPool.h"
 #include "../Worker/SnapshotScheduler.h"
+#include "../Limit/Limiter.h"
 
 /**
  * @brief TCP server that listens for client connections
@@ -49,6 +50,7 @@ private:
     Persistence pers;     /** Server owns an instance of persistance class */
     ThreadPool tpool;     /** Server owns an instance of ThreadPool class */
     SnapshotScheduler ss; /** Server owns an instance of SnapshotScheduler class */
+    RateLimiter rt;       /** Server owns an instance of RateLimter class */
 
 public:
     /**
@@ -83,12 +85,6 @@ public:
      * @param clientSocket The socket returned by accept().
      */
     void messageHandler(SocketType clientSocket);
-
-    /**
-     * @brief Forwards a parsed command to the thread pool workers.
-     * @param command The parsed command string (INSERT, GET, DELETE).
-     */
-    void contactWorkers(const std::string &command);
 };
 
 #endif

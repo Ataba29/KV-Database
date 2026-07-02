@@ -20,17 +20,15 @@ The server is designed to run cross-platform on both **Windows and Linux** using
 - **Cross-Platform TCP Server** — raw socket server supporting:
   - Windows networking through Winsock2
   - Linux networking through POSIX sockets
-
 - **Command Parser** — parses `INSERT`, `GET`, and `DELETE` commands from raw TCP bytes
 - **Thread Pool** — fixed pool of 3 worker threads handling client sessions concurrently using condition variables and mutexes
 - **Snapshot Scheduler** — background thread that automatically triggers RDB snapshots on a fixed interval
 - **Persistence** — hybrid durability layer combining:
   - **AOF (Append-Only File)** — logs every write operation in real time, reset after each snapshot
   - **RDB Snapshots** — full point-in-time dumps of the database every 5 minutes
-
+- **Rate Limiting** — per-IP and global request throttling using the Token Bucket algorithm
 - **Graceful Shutdown** — type `stop` to cleanly flush data and join all threads
-- **Docker Support** — containerized application with Dockerfile and `.dockerignore`
-- **Rate Limiting** — _(in progress)_
+- **Docker Support** — multi-stage containerized build targeting Linux
 - **Authentication** — _(in progress)_
 
 ---
@@ -61,7 +59,11 @@ Client (ncat / custom client)
  Cross-Platform TCP Server
  (Winsock2 / Linux sockets)
         │
-        ├──▶ Command Parser
+        ├──▶ Rate Limiter (Token Bucket)
+        │    per-IP + global request cap
+        │         │
+        │         ▼
+        │    Command Parser
         │         │
         │         ▼
         │    Thread Pool (3 workers)
@@ -83,12 +85,25 @@ Client (ncat / custom client)
 
 ## Concurrency Model
 
-| Component   | Protection                               | Strategy                              |
-| ----------- | ---------------------------------------- | ------------------------------------- |
-| HashMap     | `std::shared_mutex`                      | Multiple readers, exclusive writers   |
-| AOF stream  | `std::mutex`                             | Single writer at a time               |
-| Client jobs | `ThreadPool` + `std::condition_variable` | Workers sleep until job arrives       |
-| Snapshot    | `SnapshotScheduler` thread               | Sleeps on interval, wakes on shutdown |
+| Component    | Protection                               | Strategy                              |
+| ------------ | ---------------------------------------- | ------------------------------------- |
+| HashMap      | `std::shared_mutex`                      | Multiple readers, exclusive writers   |
+| AOF stream   | `std::mutex`                             | Single writer at a time               |
+| Client jobs  | `ThreadPool` + `std::condition_variable` | Workers sleep until job arrives       |
+| Snapshot     | `SnapshotScheduler` thread               | Sleeps on interval, wakes on shutdown |
+| Rate limiter | `std::mutex` per map + global            | Per-IP and global window isolated     |
+
+---
+
+## Rate Limiting
+
+kv-db uses the **Token Bucket** algorithm for rate limiting — the same approach used by Stripe, GitHub, and AWS.
+
+- Each IP gets a bucket of tokens (default: 10)
+- Each request consumes one token
+- Tokens refill at a fixed rate (default: 5/sec)
+- A global cap limits total requests per second across all IPs (default: 1000)
+- Blocked requests are dropped immediately without consuming a worker thread
 
 ---
 
@@ -118,18 +133,11 @@ cmake --build build
 Run:
 
 ```bash
-./build/KV_Database
+./build/Debug/KV_Database.exe   # Windows
+./build/KV_Database             # Linux
 ```
 
-The server starts on port `6625` by default.
-
-Type:
-
-```
-stop
-```
-
-in the terminal to shut it down cleanly.
+The server starts on port `6625` by default. Type `stop` to shut it down cleanly.
 
 ---
 
@@ -145,12 +153,6 @@ Run the container:
 
 ```bash
 docker run -d -p 6625:6625 --name my-kv-store kv-db:latest
-```
-
-The server will now be available on:
-
-```
-127.0.0.1:6625
 ```
 
 Connect using:
@@ -181,10 +183,12 @@ kv-db/
 │   │   ├── ThreadPool.cpp
 │   │   ├── SnapshotScheduler.h
 │   │   └── SnapshotScheduler.cpp
+│   ├── Limit/
+│   │   ├── Limiter.h
+│   │   └── Limiter.cpp
 │   └── Tests/
 │       ├── test_hashmap.cpp
 │       └── test_threadpool.cpp
-├── docker/
 ├── Dockerfile
 ├── .dockerignore
 ├── CMakeLists.txt
@@ -209,8 +213,8 @@ kv-db/
 - [x] Clean server shutdown
 - [x] Data recovery on restart (RDB + AOF replay)
 - [x] Unit tests with GoogleTest (HashMap + ThreadPool)
-- [x] Docker containerization
-- [ ] Rate limiting (DDoS protection)
+- [x] Docker containerization (multi-stage Linux build)
+- [x] Rate limiting with Token Bucket algorithm
 - [ ] Authentication (username + password)
 
 ---

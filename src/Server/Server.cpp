@@ -83,6 +83,22 @@ void Server::acceptClients()
 
         SocketType AcceptSocket = accept(serverSocket, NULL, NULL);
 
+        // Get client IP
+        sockaddr_in clientAddr;
+        socklen_t clientAddrLen = sizeof(clientAddr);
+        getpeername(AcceptSocket, (sockaddr *)&clientAddr, &clientAddrLen);
+        char ipBuffer[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &clientAddr.sin_addr, ipBuffer, sizeof(ipBuffer));
+        std::string clientIP(ipBuffer);
+
+        // Check rate limit
+        if (!rt.isAllowed(clientIP))
+        {
+            std::cout << "[RATELIMIT] Blocked IP: " << clientIP << "\n";
+            CloseSocket(AcceptSocket);
+            continue;
+        }
+
         if (!running)
         {
             std::cout << "[SERVER] Server stopping, exiting accept loop\n";

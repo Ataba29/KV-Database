@@ -15,6 +15,7 @@ add_library(KV_Core
     src/Storage/Persistence.cpp
     src/Worker/ThreadPool.cpp
     src/Worker/SnapshotScheduler.cpp
+    src/Limit/Limiter.cpp
 )
 
 target_include_directories(KV_Core PUBLIC 
@@ -22,6 +23,7 @@ target_include_directories(KV_Core PUBLIC
     src/Server 
     src/Storage 
     src/Worker
+    src/Limit
 )
 
 # Conditional library management depending on Target Environment OS
@@ -56,6 +58,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(run_tests 
     src/Tests/test_hashmap.cpp
     src/Tests/test_threadpool.cpp
+    src/Tests/test_ratelimiter.cpp
 )
 
 # Link the tests to GoogleTest and KV_Core
