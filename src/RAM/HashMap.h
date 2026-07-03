@@ -32,7 +32,7 @@ private:
          * @param k The string key.
          * @param v The string value.
          */
-        Node(std::string k, std::string v);
+        Node(const std::string &k, const std::string &v);
     };
 
     /** * @brief Dynamic array of Node pointers representing the hash table buckets.
@@ -49,7 +49,7 @@ private:
      * @param key The string key to be hashed.
      * @return An integer index between 0 and capacity - 1.
      */
-    int hashFunction(std::string key);
+    int hashFunction(const std::string& key) const;
 
 public:
     /**

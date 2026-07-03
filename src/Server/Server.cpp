@@ -1,14 +1,13 @@
 #include "Server.h"
 #include <iostream>
-#include <thread>
 #include <sstream>
 
 Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
                            ss([this]()
-                              { pers.createSnapshot(hashMap); })
+                              { pers.createSnapshot(hashMap); }),
+                              user_session_background_worker{userSessionManager}
 {
     std::cout << "[SERVER] Starting server...\n";
-
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -113,6 +112,8 @@ void Server::acceptClients()
 
         std::cout << "[SERVER] Client connected!\n";
 
+        userSessionManager.add_session(clientIP, AcceptSocket);
+
         tpool.acceptJob([this, AcceptSocket]()
                         { this->messageHandler(AcceptSocket); });
 
@@ -127,7 +128,7 @@ void Server::stop()
     std::cout << "[SERVER] Stop requested...\n";
 
     running = false;
-
+    userSessionManager.close_all_sessions();
     // Forces accept() loop to unblock by breaking the file descriptor channel
     CloseSocket(serverSocket);
 
@@ -206,7 +207,4 @@ void Server::messageHandler(SocketType clientSocket)
         std::string response = "No command was received";
         send(clientSocket, response.c_str(), response.length(), 0);
     }
-
-    std::cout << "[CLIENT] Closing connection\n";
-    CloseSocket(clientSocket);
 }
