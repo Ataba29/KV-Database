@@ -79,12 +79,12 @@ void Server::acceptClients()
     while (running)
     {
         std::cout << "[SERVER] Waiting for client...\n";
-
-        SocketType AcceptSocket = accept(serverSocket, NULL, NULL);
-
-        // Get client IP
         sockaddr_in clientAddr;
         socklen_t clientAddrLen = sizeof(clientAddr);
+
+        SocketType AcceptSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientAddrLen);
+
+        // Get client IP
         getpeername(AcceptSocket, (sockaddr *)&clientAddr, &clientAddrLen);
         char ipBuffer[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &clientAddr.sin_addr, ipBuffer, sizeof(ipBuffer));
@@ -114,8 +114,8 @@ void Server::acceptClients()
 
         userSessionManager.add_session(clientIP, AcceptSocket);
 
-        tpool.acceptJob([this, AcceptSocket]()
-                        { this->messageHandler(AcceptSocket); });
+        tpool.acceptJob([this, AcceptSocket, clientIP]()
+                        { this->messageHandler(AcceptSocket, clientIP); });
 
         std::cout << "[SERVER] Created client thread\n";
     }
@@ -135,76 +135,80 @@ void Server::stop()
     std::cout << "[SERVER] Server socket closed, shutdown signal sent\n";
 }
 
-void Server::messageHandler(SocketType clientSocket)
+void Server::messageHandler(SocketType clientSocket, const std::string& client_ip)
 {
     std::cout << "[CLIENT] Handling client message\n";
 
     char buffer[1024];
 
-    // On Linux, the buffer is safely passed to standard recv
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+    while (true) {
+        // On Linux, the buffer is safely passed to standard recv
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
-    if (bytesReceived <= 0)
-    {
-        std::cout << "[CLIENT] Client disconnected or error\n";
-        CloseSocket(clientSocket);
-        return;
-    }
+        if (bytesReceived <= 0)
+        {
+            std::cout << "[CLIENT] Client disconnected or is inactive\n";
+            userSessionManager.remove_session(client_ip);
+            CloseSocket(clientSocket);
+            return;
+        }
 
-    std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
-    std::string message(buffer, bytesReceived);
-    std::cout << "[CLIENT] Message: " << message << "\n";
-    std::istringstream iss(message);
-    std::string command, key, value;
+        std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
+        std::string message(buffer, bytesReceived);
+        std::cout << "[CLIENT] Message: " << message << "\n";
+        std::istringstream iss(message);
+        std::string command, key, value;
 
-    iss >> command;
-    iss >> key;
+        iss >> command;
+        iss >> key;
 
-    std::cout << "[CLIENT] Command: " << command << "\n";
-    std::cout << "[CLIENT] Key: " << key << "\n";
+        std::cout << "[CLIENT] Command: " << command << "\n";
+        std::cout << "[CLIENT] Key: " << key << "\n";
 
-    if (command == "INSERT")
-    {
-        iss >> value;
+        if (command == "INSERT")
+        {
+            iss >> value;
 
-        std::cout << "[SERVER] INSERT request received\n";
-        std::cout << "[SERVER] Value: " << value << "\n";
+            std::cout << "[SERVER] INSERT request received\n";
+            std::cout << "[SERVER] Value: " << value << "\n";
 
-        hashMap.insert(key, value);
-        pers.appendToLog(command, key, value);
+            hashMap.insert(key, value);
+            pers.appendToLog(command, key, value);
 
-        std::string response = "Insert command was successful";
-        send(clientSocket, response.c_str(), response.length(), 0);
-    }
-    else if (command == "GET")
-    {
-        std::cout << "[SERVER] GET request received\n";
+            std::string response = "Insert command was successful\n";
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
+        else if (command == "GET")
+        {
+            std::cout << "[SERVER] GET request received\n";
 
-        std::string resultGet = hashMap.get(key);
+            std::string resultGet = hashMap.get(key);
 
-        std::string response;
-        if (resultGet != "")
-            response = "Get command was successful: " + resultGet;
+            std::string response;
+            if (resultGet != "")
+                response = "Get command was successful: " + resultGet + "\n";
+            else
+                response = "Get command was successful but key dont exist\n";
+
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
+        else if (command == "DELETE")
+        {
+            std::cout << "[SERVER] DELETE request received\n";
+
+            hashMap.remove(key);
+            pers.appendToLog(command, key, "");
+
+            std::string response = "Delete command was successful\n";
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
         else
-            response = "Get command was successful but key dont exist";
+        {
+            std::cout << "[SERVER] Unknown command received\n";
 
-        send(clientSocket, response.c_str(), response.length(), 0);
-    }
-    else if (command == "DELETE")
-    {
-        std::cout << "[SERVER] DELETE request received\n";
+            std::string response = "No command was received\n";
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
 
-        hashMap.remove(key);
-        pers.appendToLog(command, key, "");
-
-        std::string response = "Delete command was successful";
-        send(clientSocket, response.c_str(), response.length(), 0);
-    }
-    else
-    {
-        std::cout << "[SERVER] Unknown command received\n";
-
-        std::string response = "No command was received";
-        send(clientSocket, response.c_str(), response.length(), 0);
     }
 }

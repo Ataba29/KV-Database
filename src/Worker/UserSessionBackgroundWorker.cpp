@@ -3,6 +3,7 @@
 //
 
 #include "UserSessionBackgroundWorker.h"
+#include <iostream>
 
 UserSessionBackgroundWorker::UserSessionBackgroundWorker(UserSessionManager& user_session_manager, std::chrono::minutes interval_in_minutes)
     : user_sessions(user_session_manager), interval(interval_in_minutes), active(true)
@@ -28,7 +29,7 @@ void UserSessionBackgroundWorker::run() {
         if (!active) {
             break;
         }
-
+        std::cout << "UserSessionBackgroundWorker::run()" << std::endl;
         lock.unlock();
         this->user_sessions.cleanup_expired_sessions();
     }
