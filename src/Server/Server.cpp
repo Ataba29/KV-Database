@@ -185,7 +185,7 @@ void Server::messageHandler(SocketType clientSocket, const std::string& client_i
             std::string resultGet = hashMap.get(key);
 
             std::string response;
-            if (resultGet != "")
+            if (!resultGet.empty())
                 response = "Get command was successful: " + resultGet + "\n";
             else
                 response = "Get command was successful but key dont exist\n";
