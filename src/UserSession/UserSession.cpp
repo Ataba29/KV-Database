@@ -6,38 +6,44 @@
 
 #include <mutex>
 
-void UserSessionManager::add_session(const std::string& ip, SocketType socket, std::chrono::seconds max_idle) {
+SessionKey UserSessionManager::add_session(SocketType socket, const sockaddr_in& client_addr, std::chrono::seconds max_idle){
+    SessionKey key;
+    key.raw_ip = client_addr.sin_addr.s_addr;
+    key.raw_port = client_addr.sin_port;
+
     {
         std::shared_lock read_lock(this->mutex);
-        if (this->mapping_ip_to_session.find(ip) != this->mapping_ip_to_session.end()) {
-            return;
+        if (this->users_sessions.find(key) != this->users_sessions.end()) {
+            return key; // Session already exists
         }
     }
 
     std::unique_lock lock(this->mutex); // Write Lock
-    this->mapping_ip_to_session[ip] = std::make_unique<UserSession>(socket, max_idle);
+    this->users_sessions[key] = std::make_unique<UserSession>(socket, client_addr, max_idle);
+
+    return key;
 }
 
-void UserSessionManager::update_activity(const std::string& ip) {
+void UserSessionManager::update_activity(const SessionKey& key) {
     std::unique_lock lock(this->mutex); // Write Lock
 
-    if (auto it = mapping_ip_to_session.find(ip); it != mapping_ip_to_session.end()) {
+    if (auto it = users_sessions.find(key); it != users_sessions.end()) {
         it->second->update_last_activity_time();
     }
 }
 
-void UserSessionManager::remove_session(const std::string& ip) {
+void UserSessionManager::remove_session(const SessionKey& key) {
     std::unique_lock lock(this->mutex); // Write lock
     // *** First time using unique_ptr  not sure if automatically calls the UserSession destructor or not ***
-    mapping_ip_to_session.erase(ip);
+    users_sessions.erase(key);
 }
 
 void UserSessionManager::cleanup_expired_sessions() {
     std::unique_lock lock(this->mutex); // Write Lock
 
-    for (auto it = mapping_ip_to_session.begin(); it != mapping_ip_to_session.end(); ) {
+    for (auto it = users_sessions.begin(); it != users_sessions.end(); ) {
         if (it->second->is_expired()) {
-            it = mapping_ip_to_session.erase(it); // Terminate Will call Automatically
+            it = users_sessions.erase(it); // Terminate Will call Automatically
         } else {
             ++it;
         }
@@ -46,14 +52,22 @@ void UserSessionManager::cleanup_expired_sessions() {
 
 void UserSessionManager::close_all_sessions() {
     std::unique_lock lock(this->mutex); // Write Lock
-    this->mapping_ip_to_session.clear();
+    this->users_sessions.clear();
 }
 
 
-UserSessionManager::UserSession::UserSession(SocketType socket, std::chrono::seconds max_idle)
+// --- UserSession Implementation ---
+
+UserSessionManager::UserSession::UserSession(SocketType socket, const sockaddr_in& client_addr, std::chrono::seconds max_idle)
     : user_socket(socket), session_maximum_idle_time(max_idle)
 {
     last_activity_time = std::chrono::steady_clock::now();
+
+    char ipBuffer[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &client_addr.sin_addr, ipBuffer, sizeof(ipBuffer));
+
+    this->cached_ip_str = ipBuffer;
+    this->cached_port_str = std::to_string(ntohs(client_addr.sin_port));
 }
 
 UserSessionManager::UserSession::~UserSession() {

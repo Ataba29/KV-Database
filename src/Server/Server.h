@@ -63,7 +63,7 @@ public:
      * @brief Handles communication with a connected client.
      * @param clientSocket The socket returned by accept().
      */
-    void messageHandler(SocketType clientSocket, const std::string& client_ip);
+    void messageHandler(SocketType clientSocket, const SessionKey& sessionKey);
 };
 
 #endif

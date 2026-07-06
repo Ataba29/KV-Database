@@ -79,16 +79,19 @@ void Server::acceptClients()
     while (running)
     {
         std::cout << "[SERVER] Waiting for client...\n";
-        sockaddr_in clientAddr;
+        sockaddr_in clientAddr{};
         socklen_t clientAddrLen = sizeof(clientAddr);
-
         SocketType AcceptSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientAddrLen);
 
+        if (AcceptSocket == INVALID_SOCKET)
+        {
+            std::cout << "[SERVER] Accept failed (or socket closed)\n";
+            break;
+        }
+
+
         // Get client IP
-        getpeername(AcceptSocket, (sockaddr *)&clientAddr, &clientAddrLen);
-        char ipBuffer[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &clientAddr.sin_addr, ipBuffer, sizeof(ipBuffer));
-        std::string clientIP(ipBuffer);
+        uint32_t clientIP{static_cast<uint32_t>(clientAddr.sin_addr.s_addr)};
 
         // Check rate limit
         if (!rt.isAllowed(clientIP))
@@ -104,18 +107,12 @@ void Server::acceptClients()
             break;
         }
 
-        if (AcceptSocket == INVALID_SOCKET)
-        {
-            std::cout << "[SERVER] Accept failed (or socket closed)\n";
-            break;
-        }
+        SessionKey active_key = userSessionManager.add_session(AcceptSocket, clientAddr);
 
         std::cout << "[SERVER] Client connected!\n";
 
-        userSessionManager.add_session(clientIP, AcceptSocket);
-
-        tpool.acceptJob([this, AcceptSocket, clientIP]()
-                        { this->messageHandler(AcceptSocket, clientIP); });
+        tpool.acceptJob([this, AcceptSocket, active_key]()
+                        { this->messageHandler(AcceptSocket, active_key); });
 
         std::cout << "[SERVER] Created client thread\n";
     }
@@ -129,13 +126,12 @@ void Server::stop()
 
     running = false;
     userSessionManager.close_all_sessions();
-    // Forces accept() loop to unblock by breaking the file descriptor channel
     CloseSocket(serverSocket);
-
+    // Forces accept() loop to unblock by breaking the file descriptor channel
     std::cout << "[SERVER] Server socket closed, shutdown signal sent\n";
 }
 
-void Server::messageHandler(SocketType clientSocket, const std::string& client_ip)
+void Server::messageHandler(SocketType clientSocket, const SessionKey& sessionKey)
 {
     std::cout << "[CLIENT] Handling client message\n";
 
@@ -148,10 +144,10 @@ void Server::messageHandler(SocketType clientSocket, const std::string& client_i
         if (bytesReceived <= 0)
         {
             std::cout << "[CLIENT] Client disconnected or is inactive\n";
-            userSessionManager.remove_session(client_ip);
-            CloseSocket(clientSocket);
+            userSessionManager.remove_session(sessionKey);
             return;
         }
+        userSessionManager.update_activity(sessionKey);
 
         std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
         std::string message(buffer, bytesReceived);
@@ -171,6 +167,11 @@ void Server::messageHandler(SocketType clientSocket, const std::string& client_i
 
             std::cout << "[SERVER] INSERT request received\n";
             std::cout << "[SERVER] Value: " << value << "\n";
+            if (value.empty()) {
+                std::string response = "Empty Value Recieved, Try again\n";
+                send(clientSocket, response.c_str(), response.length(), 0);
+                continue;
+            }
 
             hashMap.insert(key, value);
             pers.appendToLog(command, key, value);

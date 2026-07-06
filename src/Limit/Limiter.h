@@ -25,7 +25,7 @@ private:
         std::chrono::steady_clock::time_point lastRefill; /**< Last time tokens were added. */
     };
 
-    std::unordered_map<std::string, IPRecord> ipRecords; /**< Per-IP bucket state. */
+    std::unordered_map<uint32_t, IPRecord> ipRecords; /**< Per-IP bucket state. */
     std::mutex mapMutex;                                 /**< Protects ipRecords from concurrent access. */
 
     std::atomic<int> globalCount;                            /**< Total requests in current global window. */
@@ -48,7 +48,7 @@ private:
      * @return true if the IP has available tokens and the request is
      *         allowed, false if the IP is rate limited.
      */
-    bool isAllowedPrivate(const std::string &ip);
+    bool isAllowedPrivate(uint32_t ip);
 
 public:
     /**
@@ -66,10 +66,10 @@ public:
 
     /**
      * @brief Checks if a request from the given IP should be allowed.
-     * @param ip The client IP address as a string.
+     * @param ip The raw client IP address
      * @return true if allowed, false if rate limited.
      */
-    bool isAllowed(const std::string &ip);
+    bool isAllowed(uint32_t ip);
 };
 
 #endif
