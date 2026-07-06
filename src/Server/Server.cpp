@@ -108,15 +108,12 @@ void Server::acceptClients()
 
         SessionKey active_key = userSessionManager.add_session(AcceptSocket, clientAddr);
 
-        if (!setNonBlocking(AcceptSocket))
-        {
-            std::cout << "[SERVER] Failed to set non-blocking, dropping client\n";
-            userSessionManager.remove_session(active_key);
-            CloseSocket(AcceptSocket);
-            continue;
-        }
-        connections[AcceptSocket] = Connection{AcceptSocket, active_key};
-        std::cout << "[SERVER] Client connected and registered!\n";
+        std::cout << "[SERVER] Client connected!\n";
+
+        tpool.acceptJob([this, AcceptSocket, active_key]()
+                        { this->messageHandler(AcceptSocket, active_key); });
+
+        std::cout << "[SERVER] Created client thread\n";
     }
 
     std::cout << "[SERVER] acceptClients loop ended\n";
