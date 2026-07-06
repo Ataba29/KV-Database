@@ -22,6 +22,7 @@ add_library(KV_Core
     src/Worker/UserSessionBackgroundWorker.cpp
     src/Worker/UserSessionBackgroundWorker.h
     src/Networking/Epolleventloop.cpp
+    src/Networking/IocpEventLoop.cpp
 )
 
 target_include_directories(KV_Core PUBLIC 
