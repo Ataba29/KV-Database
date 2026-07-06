@@ -1,7 +1,7 @@
 #include "HashMap.h"
 #include <iostream>
 
-HashMap::Node::Node(std::string k, std::string v)
+HashMap::Node::Node(const std::string &k, const std::string &v)
 {
     this->key = k;
     this->value = v;
@@ -37,12 +37,12 @@ HashMap::~HashMap()
     delete[] table; // Finally delete the entire table once its empty
 }
 
-int HashMap::hashFunction(std::string key)
+int HashMap::hashFunction(const std::string& key) const
 {
     int p = 31;
     unsigned long long hashValue = 0;
 
-    for (char c : key)
+    for (const char c : key)
     {
         // The hash function chose is H = 31 * H-1 + C
         hashValue += (p * hashValue) + c;

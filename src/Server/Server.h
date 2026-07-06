@@ -1,37 +1,15 @@
 #ifndef SERVER_H
 #define SERVER_H
-
-// --- Cross-Platform Networking Layers ---
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-// Use type aliases to match native Windows paradigms cleanly
-using SocketType = SOCKET;
-inline int CloseSocket(SocketType s) { return closesocket(s); }
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-
-// Define standard POSIX elements to match the unified implementation API
-using SocketType = int;
-inline int CloseSocket(SocketType s) { return close(s); }
-
-const SocketType INVALID_SOCKET = -1;
-const int SOCKET_ERROR = -1;
-#endif
-
-#include <stdexcept>
-#include <string>
 #include <atomic>
+
+#include "UserSessionBackgroundWorker.h"
 #include "../RAM/HashMap.h"
 #include "../Storage/Persistence.h"
 #include "../Worker/ThreadPool.h"
 #include "../Worker/SnapshotScheduler.h"
 #include "../Limit/Limiter.h"
+#include "../Networking/NetworkTypes.h"
+#include "../UserSession/UserSession.h"
 
 /**
  * @brief TCP server that listens for client connections
@@ -51,7 +29,8 @@ private:
     ThreadPool tpool;     /** Server owns an instance of ThreadPool class */
     SnapshotScheduler ss; /** Server owns an instance of SnapshotScheduler class */
     RateLimiter rt;       /** Server owns an instance of RateLimter class */
-
+    UserSessionManager userSessionManager; /** Managing User Sessions */
+    UserSessionBackgroundWorker user_session_background_worker;
 public:
     /**
      * @brief Initializes the server with a given port.
@@ -84,7 +63,7 @@ public:
      * @brief Handles communication with a connected client.
      * @param clientSocket The socket returned by accept().
      */
-    void messageHandler(SocketType clientSocket);
+    void messageHandler(SocketType clientSocket, const SessionKey& sessionKey);
 };
 
 #endif

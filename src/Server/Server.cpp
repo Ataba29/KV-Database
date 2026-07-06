@@ -1,14 +1,13 @@
 #include "Server.h"
 #include <iostream>
-#include <thread>
 #include <sstream>
 
 Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
                            ss([this]()
-                              { pers.createSnapshot(hashMap); })
+                              { pers.createSnapshot(hashMap); }),
+                              user_session_background_worker{userSessionManager}
 {
     std::cout << "[SERVER] Starting server...\n";
-
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -80,16 +79,19 @@ void Server::acceptClients()
     while (running)
     {
         std::cout << "[SERVER] Waiting for client...\n";
+        sockaddr_in clientAddr{};
+        socklen_t clientAddrLen = sizeof(clientAddr);
+        SocketType AcceptSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientAddrLen);
 
-        SocketType AcceptSocket = accept(serverSocket, NULL, NULL);
+        if (AcceptSocket == INVALID_SOCKET)
+        {
+            std::cout << "[SERVER] Accept failed (or socket closed)\n";
+            break;
+        }
+
 
         // Get client IP
-        sockaddr_in clientAddr;
-        socklen_t clientAddrLen = sizeof(clientAddr);
-        getpeername(AcceptSocket, (sockaddr *)&clientAddr, &clientAddrLen);
-        char ipBuffer[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &clientAddr.sin_addr, ipBuffer, sizeof(ipBuffer));
-        std::string clientIP(ipBuffer);
+        uint32_t clientIP{static_cast<uint32_t>(clientAddr.sin_addr.s_addr)};
 
         // Check rate limit
         if (!rt.isAllowed(clientIP))
@@ -105,16 +107,12 @@ void Server::acceptClients()
             break;
         }
 
-        if (AcceptSocket == INVALID_SOCKET)
-        {
-            std::cout << "[SERVER] Accept failed (or socket closed)\n";
-            break;
-        }
+        SessionKey active_key = userSessionManager.add_session(AcceptSocket, clientAddr);
 
         std::cout << "[SERVER] Client connected!\n";
 
-        tpool.acceptJob([this, AcceptSocket]()
-                        { this->messageHandler(AcceptSocket); });
+        tpool.acceptJob([this, AcceptSocket, active_key]()
+                        { this->messageHandler(AcceptSocket, active_key); });
 
         std::cout << "[SERVER] Created client thread\n";
     }
@@ -127,86 +125,91 @@ void Server::stop()
     std::cout << "[SERVER] Stop requested...\n";
 
     running = false;
-
-    // Forces accept() loop to unblock by breaking the file descriptor channel
+    userSessionManager.close_all_sessions();
     CloseSocket(serverSocket);
-
+    // Forces accept() loop to unblock by breaking the file descriptor channel
     std::cout << "[SERVER] Server socket closed, shutdown signal sent\n";
 }
 
-void Server::messageHandler(SocketType clientSocket)
+void Server::messageHandler(SocketType clientSocket, const SessionKey& sessionKey)
 {
     std::cout << "[CLIENT] Handling client message\n";
 
     char buffer[1024];
 
-    // On Linux, the buffer is safely passed to standard recv
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+    while (true) {
+        // On Linux, the buffer is safely passed to standard recv
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
-    if (bytesReceived <= 0)
-    {
-        std::cout << "[CLIENT] Client disconnected or error\n";
-        CloseSocket(clientSocket);
-        return;
-    }
+        if (bytesReceived <= 0)
+        {
+            std::cout << "[CLIENT] Client disconnected or is inactive\n";
+            userSessionManager.remove_session(sessionKey);
+            return;
+        }
+        userSessionManager.update_activity(sessionKey);
 
-    std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
-    std::string message(buffer, bytesReceived);
-    std::cout << "[CLIENT] Message: " << message << "\n";
-    std::istringstream iss(message);
-    std::string command, key, value;
+        std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
+        std::string message(buffer, bytesReceived);
+        std::cout << "[CLIENT] Message: " << message << "\n";
+        std::istringstream iss(message);
+        std::string command, key, value;
 
-    iss >> command;
-    iss >> key;
+        iss >> command;
+        iss >> key;
 
-    std::cout << "[CLIENT] Command: " << command << "\n";
-    std::cout << "[CLIENT] Key: " << key << "\n";
+        std::cout << "[CLIENT] Command: " << command << "\n";
+        std::cout << "[CLIENT] Key: " << key << "\n";
 
-    if (command == "INSERT")
-    {
-        iss >> value;
+        if (command == "INSERT")
+        {
+            iss >> value;
 
-        std::cout << "[SERVER] INSERT request received\n";
-        std::cout << "[SERVER] Value: " << value << "\n";
+            std::cout << "[SERVER] INSERT request received\n";
+            std::cout << "[SERVER] Value: " << value << "\n";
+            if (value.empty()) {
+                std::string response = "Empty Value Recieved, Try again\n";
+                send(clientSocket, response.c_str(), response.length(), 0);
+                continue;
+            }
 
-        hashMap.insert(key, value);
-        pers.appendToLog(command, key, value);
+            hashMap.insert(key, value);
+            pers.appendToLog(command, key, value);
 
-        std::string response = "Insert command was successful";
-        send(clientSocket, response.c_str(), response.length(), 0);
-    }
-    else if (command == "GET")
-    {
-        std::cout << "[SERVER] GET request received\n";
+            std::string response = "Insert command was successful\n";
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
+        else if (command == "GET")
+        {
+            std::cout << "[SERVER] GET request received\n";
 
-        std::string resultGet = hashMap.get(key);
+            std::string resultGet = hashMap.get(key);
 
-        std::string response;
-        if (resultGet != "")
-            response = "Get command was successful: " + resultGet;
+            std::string response;
+            if (!resultGet.empty())
+                response = "Get command was successful: " + resultGet + "\n";
+            else
+                response = "Get command was successful but key dont exist\n";
+
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
+        else if (command == "DELETE")
+        {
+            std::cout << "[SERVER] DELETE request received\n";
+
+            hashMap.remove(key);
+            pers.appendToLog(command, key, "");
+
+            std::string response = "Delete command was successful\n";
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
         else
-            response = "Get command was successful but key dont exist";
+        {
+            std::cout << "[SERVER] Unknown command received\n";
 
-        send(clientSocket, response.c_str(), response.length(), 0);
+            std::string response = "No command was received\n";
+            send(clientSocket, response.c_str(), response.length(), 0);
+        }
+
     }
-    else if (command == "DELETE")
-    {
-        std::cout << "[SERVER] DELETE request received\n";
-
-        hashMap.remove(key);
-        pers.appendToLog(command, key, "");
-
-        std::string response = "Delete command was successful";
-        send(clientSocket, response.c_str(), response.length(), 0);
-    }
-    else
-    {
-        std::cout << "[SERVER] Unknown command received\n";
-
-        std::string response = "No command was received";
-        send(clientSocket, response.c_str(), response.length(), 0);
-    }
-
-    std::cout << "[CLIENT] Closing connection\n";
-    CloseSocket(clientSocket);
 }

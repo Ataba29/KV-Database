@@ -45,7 +45,7 @@ bool RateLimiter::isAllowedGlobal()
     return true;
 }
 
-bool RateLimiter::isAllowedPrivate(const std::string &ip)
+bool RateLimiter::isAllowedPrivate(const uint32_t ip)
 {
     auto now = std::chrono::steady_clock::now();
 
@@ -85,7 +85,7 @@ bool RateLimiter::isAllowedPrivate(const std::string &ip)
     return true;
 }
 
-bool RateLimiter::isAllowed(const std::string &ip)
+bool RateLimiter::isAllowed(const uint32_t ip)
 {
     return isAllowedGlobal() && isAllowedPrivate(ip);
 }

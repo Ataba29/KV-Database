@@ -26,3 +26,4 @@ Makefile
 .vscode/
 .vs/
 out/
+.idea/
