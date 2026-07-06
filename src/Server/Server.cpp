@@ -5,7 +5,7 @@
 Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
                            ss([this]()
                               { pers.createSnapshot(hashMap); }),
-                              user_session_background_worker{userSessionManager}
+                           user_session_background_worker{userSessionManager}
 {
     std::cout << "[SERVER] Starting server...\n";
 #ifdef _WIN32
@@ -81,14 +81,13 @@ void Server::acceptClients()
         std::cout << "[SERVER] Waiting for client...\n";
         sockaddr_in clientAddr{};
         socklen_t clientAddrLen = sizeof(clientAddr);
-        SocketType AcceptSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientAddrLen);
+        SocketType AcceptSocket = accept(serverSocket, (sockaddr *)&clientAddr, &clientAddrLen);
 
         if (AcceptSocket == INVALID_SOCKET)
         {
             std::cout << "[SERVER] Accept failed (or socket closed)\n";
             break;
         }
-
 
         // Get client IP
         uint32_t clientIP{static_cast<uint32_t>(clientAddr.sin_addr.s_addr)};
@@ -109,12 +108,15 @@ void Server::acceptClients()
 
         SessionKey active_key = userSessionManager.add_session(AcceptSocket, clientAddr);
 
-        std::cout << "[SERVER] Client connected!\n";
-
-        tpool.acceptJob([this, AcceptSocket, active_key]()
-                        { this->messageHandler(AcceptSocket, active_key); });
-
-        std::cout << "[SERVER] Created client thread\n";
+        if (!setNonBlocking(AcceptSocket))
+        {
+            std::cout << "[SERVER] Failed to set non-blocking, dropping client\n";
+            userSessionManager.remove_session(active_key);
+            CloseSocket(AcceptSocket);
+            continue;
+        }
+        connections[AcceptSocket] = Connection{AcceptSocket, active_key};
+        std::cout << "[SERVER] Client connected and registered!\n";
     }
 
     std::cout << "[SERVER] acceptClients loop ended\n";
@@ -131,13 +133,14 @@ void Server::stop()
     std::cout << "[SERVER] Server socket closed, shutdown signal sent\n";
 }
 
-void Server::messageHandler(SocketType clientSocket, const SessionKey& sessionKey)
+void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKey)
 {
     std::cout << "[CLIENT] Handling client message\n";
 
     char buffer[1024];
 
-    while (true) {
+    while (true)
+    {
         // On Linux, the buffer is safely passed to standard recv
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
@@ -167,7 +170,8 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey& sessionKe
 
             std::cout << "[SERVER] INSERT request received\n";
             std::cout << "[SERVER] Value: " << value << "\n";
-            if (value.empty()) {
+            if (value.empty())
+            {
                 std::string response = "Empty Value Recieved, Try again\n";
                 send(clientSocket, response.c_str(), response.length(), 0);
                 continue;
@@ -210,6 +214,5 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey& sessionKe
             std::string response = "No command was received\n";
             send(clientSocket, response.c_str(), response.length(), 0);
         }
-
     }
 }
