@@ -10,6 +10,7 @@
 #include "../Limit/Limiter.h"
 #include "../Networking/NetworkTypes.h"
 #include "../UserSession/UserSession.h"
+#include "../UserSession/Connection.h"
 
 /**
  * @brief TCP server that listens for client connections
@@ -24,13 +25,15 @@ private:
 
     std::atomic<bool> running; /**< Controls whether the server is running */
 
-    HashMap hashMap;      /** Server owns an instance of the hashmap */
-    Persistence pers;     /** Server owns an instance of persistance class */
-    ThreadPool tpool;     /** Server owns an instance of ThreadPool class */
-    SnapshotScheduler ss; /** Server owns an instance of SnapshotScheduler class */
-    RateLimiter rt;       /** Server owns an instance of RateLimter class */
-    UserSessionManager userSessionManager; /** Managing User Sessions */
-    UserSessionBackgroundWorker user_session_background_worker;
+    HashMap hashMap;                                            /** Server owns an instance of the hashmap */
+    Persistence pers;                                           /** Server owns an instance of persistance class */
+    ThreadPool tpool;                                           /** Server owns an instance of ThreadPool class */
+    SnapshotScheduler ss;                                       /** Server owns an instance of SnapshotScheduler class */
+    RateLimiter rt;                                             /** Server owns an instance of RateLimter class */
+    UserSessionManager userSessionManager;                      /** Managing User Sessions */
+    UserSessionBackgroundWorker user_session_background_worker; /** Background worker that sweeps expired sessions*/
+    std::unordered_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
+
 public:
     /**
      * @brief Initializes the server with a given port.
@@ -63,7 +66,7 @@ public:
      * @brief Handles communication with a connected client.
      * @param clientSocket The socket returned by accept().
      */
-    void messageHandler(SocketType clientSocket, const SessionKey& sessionKey);
+    void messageHandler(SocketType clientSocket, const SessionKey &sessionKey);
 };
 
 #endif

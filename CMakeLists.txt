@@ -16,11 +16,12 @@ add_library(KV_Core
     src/Worker/ThreadPool.cpp
     src/Worker/SnapshotScheduler.cpp
     src/Limit/Limiter.cpp
-        src/Networking/NetworkTypes.h
-        src/UserSession/UserSession.cpp
-        src/UserSession/UserSession.h
-        src/Worker/UserSessionBackgroundWorker.cpp
-        src/Worker/UserSessionBackgroundWorker.h
+    src/Networking/NetworkTypes.h
+    src/UserSession/UserSession.cpp
+    src/UserSession/UserSession.h
+    src/UserSession/Connection.h
+    src/Worker/UserSessionBackgroundWorker.cpp
+    src/Worker/UserSessionBackgroundWorker.h
 )
 
 target_include_directories(KV_Core PUBLIC 
