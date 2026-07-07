@@ -35,12 +35,23 @@ inline bool setNonBlocking(SocketType s)
     u_long mode = 1; // 1 = non-blocking
     return ioctlsocket(s, FIONBIO, &mode) == 0;
 }
+
+/**
+ * @brief Checks whether the last socket error was "no data available right
+ *        now" rather than a real error (Windows implementation).
+ * @return true if the last error was WSAEWOULDBLOCK.
+ */
+inline bool wouldBlock()
+{
+    return WSAGetLastError() == WSAEWOULDBLOCK;
+}
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <cerrno>
 
 /// Native socket type on POSIX systems (plain file descriptor).
 using SocketType = int;
@@ -69,6 +80,16 @@ inline bool setNonBlocking(SocketType s)
     if (flags == -1)
         return false;
     return fcntl(s, F_SETFL, flags | O_NONBLOCK) != -1;
+}
+
+/**
+ * @brief Checks whether the last socket error was "no data available right
+ *        now" rather than a real error (POSIX implementation).
+ * @return true if errno is EWOULDBLOCK or EAGAIN.
+ */
+inline bool wouldBlock()
+{
+    return errno == EWOULDBLOCK || errno == EAGAIN;
 }
 #endif
 

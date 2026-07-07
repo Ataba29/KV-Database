@@ -58,9 +58,11 @@ public:
     virtual void remove(SocketType sock) = 0;
 
     /**
-     * @brief Blocks until at least one watched socket is ready.
+     * @brief Blocks (up to an internal timeout) until at least one watched
+     *        socket is ready, or the timeout elapses with nothing ready.
      * @param out Filled with the sockets that are ready and what happened to them.
-     * @return The number of ready events, or -1 on error.
+     * @return The number of ready events, 0 if the wait timed out with
+     *         nothing ready, or -1 on error.
      */
     virtual int wait(std::vector<EventLoopEntry> &out) = 0;
 };

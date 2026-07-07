@@ -59,11 +59,11 @@ int IocpEventLoop::wait(std::vector<EventLoopEntry> &out)
     OVERLAPPED *overlapped = nullptr;
 
     BOOL success = GetQueuedCompletionStatus(
-        iocpHandle, &bytesTransferred, &completionKey, &overlapped, INFINITE);
+        iocpHandle, &bytesTransferred, &completionKey, &overlapped, 1000); // 1s timeout so shutdown can be noticed
 
     if (overlapped == nullptr)
     {
-        return -1; // serious port-level error, no specific socket to report
+        return -1; // timed out with nothing ready, or a serious port-level error
     }
 
     SocketType sock = static_cast<SocketType>(completionKey);

@@ -33,7 +33,7 @@ int EpollEventLoop::wait(std::vector<EventLoopEntry> &out)
 {
     epoll_event events[MAX_EVENTS];
 
-    int numReady = epoll_wait(epollFd, events, MAX_EVENTS, -1); // -1 = block forever
+    int numReady = epoll_wait(epollFd, events, MAX_EVENTS, 1000); // 1s timeout so shutdown can be noticed
     if (numReady == -1)
     {
         return -1;
