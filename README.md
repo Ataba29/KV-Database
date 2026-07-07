@@ -94,15 +94,15 @@ Client (ncat / custom client)
 
 ## Concurrency Model
 
-| Component    | Protection                               | Strategy                                                |
-| ------------ | ------------------------------------------ | -------------------------------------------------------- |
-| Event Loop   | Single dedicated thread                    | Watches all sockets for readiness; never blocks on I/O    |
-| Client jobs  | `ThreadPool` + `std::condition_variable`   | Only dispatched once a socket is actually readable        |
-| Connections  | `busySockets` guard (`std::mutex`)         | Prevents duplicate recv() jobs for the same socket         |
-| HashMap      | `std::shared_mutex`                        | Multiple readers, exclusive writers                       |
-| AOF stream   | `std::mutex`                               | Single writer at a time                                   |
-| Snapshot     | `SnapshotScheduler` thread                 | Sleeps on interval, wakes on shutdown                      |
-| Rate limiter | `std::mutex` per map + global              | Per-IP and global window isolated                          |
+| Component    | Protection                               | Strategy                                               |
+| ------------ | ---------------------------------------- | ------------------------------------------------------ |
+| Event Loop   | Single dedicated thread                  | Watches all sockets for readiness; never blocks on I/O |
+| Client jobs  | `ThreadPool` + `std::condition_variable` | Only dispatched once a socket is actually readable     |
+| Connections  | `busySockets` guard (`std::mutex`)       | Prevents duplicate recv() jobs for the same socket     |
+| HashMap      | `std::shared_mutex`                      | Multiple readers, exclusive writers                    |
+| AOF stream   | `std::mutex`                             | Single writer at a time                                |
+| Snapshot     | `SnapshotScheduler` thread               | Sleeps on interval, wakes on shutdown                  |
+| Rate limiter | `std::mutex` per map + global            | Per-IP and global window isolated                      |
 
 ---
 
