@@ -17,11 +17,12 @@ The server is designed to run cross-platform on both **Windows and Linux** using
 ## Features
 
 - **Custom HashMap** — hand-rolled hash table with separate chaining for collision resolution and dynamic growth, protected by a `std::shared_mutex` for concurrent read/write safety
-- **Cross-Platform TCP Server** — raw socket server supporting:
-  - Windows networking through Winsock2
-  - Linux networking through POSIX sockets
+- **Cross-Platform Event-Driven TCP Server** — readiness-based event loop supporting many concurrent connections without one thread per client:
+  - Linux: `epoll`
+  - Windows: IOCP (adapted to a readiness-style interface via zero-byte `WSARecv`)
+  - Both implementations sit behind a shared `IEventLoop` interface, selected automatically at compile time
 - **Command Parser** — parses `INSERT`, `GET`, and `DELETE` commands from raw TCP bytes
-- **Thread Pool** — fixed pool of 3 worker threads handling client sessions concurrently using condition variables and mutexes
+- **Thread Pool** — fixed pool of 3 worker threads executing actual command work (GET/INSERT/DELETE), decoupled from connection count
 - **Snapshot Scheduler** — background thread that automatically triggers RDB snapshots on a fixed interval
 - **Persistence** — hybrid durability layer combining:
   - **AOF (Append-Only File)** — logs every write operation in real time, reset after each snapshot
@@ -59,6 +60,13 @@ Client (ncat / custom client)
  Cross-Platform TCP Server
  (Winsock2 / Linux sockets)
         │
+        ▼
+ Event Loop (readiness-based)
+ epoll (Linux) / IOCP (Windows)
+ behind a shared IEventLoop interface
+        │  watches all client sockets;
+        │  reports which ones are ready
+        ▼
         ├──▶ Rate Limiter (Token Bucket)
         │    per-IP + global request cap
         │         │
@@ -67,6 +75,7 @@ Client (ncat / custom client)
         │         │
         │         ▼
         │    Thread Pool (3 workers)
+        │    executes actual GET/INSERT/DELETE
         │         │
         │         ▼
         │    HashMap (in-memory store)
@@ -85,13 +94,15 @@ Client (ncat / custom client)
 
 ## Concurrency Model
 
-| Component    | Protection                               | Strategy                              |
-| ------------ | ---------------------------------------- | ------------------------------------- |
-| HashMap      | `std::shared_mutex`                      | Multiple readers, exclusive writers   |
-| AOF stream   | `std::mutex`                             | Single writer at a time               |
-| Client jobs  | `ThreadPool` + `std::condition_variable` | Workers sleep until job arrives       |
-| Snapshot     | `SnapshotScheduler` thread               | Sleeps on interval, wakes on shutdown |
-| Rate limiter | `std::mutex` per map + global            | Per-IP and global window isolated     |
+| Component    | Protection                               | Strategy                                                |
+| ------------ | ------------------------------------------ | -------------------------------------------------------- |
+| Event Loop   | Single dedicated thread                    | Watches all sockets for readiness; never blocks on I/O    |
+| Client jobs  | `ThreadPool` + `std::condition_variable`   | Only dispatched once a socket is actually readable        |
+| Connections  | `busySockets` guard (`std::mutex`)         | Prevents duplicate recv() jobs for the same socket         |
+| HashMap      | `std::shared_mutex`                        | Multiple readers, exclusive writers                       |
+| AOF stream   | `std::mutex`                               | Single writer at a time                                   |
+| Snapshot     | `SnapshotScheduler` thread                 | Sleeps on interval, wakes on shutdown                      |
+| Rate limiter | `std::mutex` per map + global              | Per-IP and global window isolated                          |
 
 ---
 
@@ -172,6 +183,15 @@ kv-db/
 │   ├── Server/
 │   │   ├── Server.h
 │   │   └── Server.cpp
+│   ├── Networking/
+│   │   ├── NetworkTypes.h
+│   │   ├── EventLoop.h
+│   │   ├── EpollEventLoop.h / .cpp
+│   │   ├── IocpEventLoop.h / .cpp
+│   │   └── EventLoopFactory.h
+│   ├── UserSession/
+│   │   ├── UserSession.h / .cpp
+│   │   └── Connection.h
 │   ├── RAM/
 │   │   ├── HashMap.h
 │   │   └── HashMap.cpp
@@ -215,6 +235,9 @@ kv-db/
 - [x] Unit tests with GoogleTest (HashMap + ThreadPool)
 - [x] Docker containerization (multi-stage Linux build)
 - [x] Rate limiting with Token Bucket algorithm
+- [x] Cross-platform event-driven architecture (epoll / IOCP)
+- [ ] Route idle-session socket cleanup through Server's connection teardown path
+- [ ] TCP fragmentation / message framing (LineBuffer)
 - [ ] Authentication (username + password)
 
 ---
