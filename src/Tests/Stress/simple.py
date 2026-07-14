@@ -2,12 +2,15 @@
 Simple concurrent stress tester for kv-db.
 
 Opens N concurrent TCP connections, has each one send a burst of
-INSERT/GET/DELETE commands, and reports connection success rate,
-request throughput, and latency stats.
+INSERT/GET/DELETE commands against unique keys, and reports connection
+success rate, request throughput, and latency stats.
 
 Usage:
     python stress_test.py --host 127.0.0.1 --port 6625 --clients 50 --requests 20
-    also lines 102-107 in server.cpp must be disabled to allow all traffic to be accepted
+
+To disable rate limiting for an unthrottled baseline run, set the env var
+on the server (no code changes / rebuild needed):
+    docker run -d -p 6625:6625 -e KV_DISABLE_RATE_LIMIT=1 --name kv-stress kv-db:latest
 
 Requires: Python 3.8+ (asyncio, no external dependencies)
 """
@@ -32,16 +35,21 @@ async def run_client(
         errors.append(f"client {client_id}: connect failed: {e}")
         return
 
-    key = f"stress_key_{client_id}"
+    inserted_keys = []  # keys this client has actually created
 
     try:
         for i in range(num_requests):
-            # cycle through INSERT / GET / DELETE like a real workload
-            if i % 3 == 0:
+            # unique key per insert (client_id + i) so different clients and
+            # different requests never collide on the same key/bucket
+            if i % 3 == 0 or not inserted_keys:
+                key = f"stress_key_{client_id}_{i}"
                 cmd = f"INSERT {key} value_{i}\n"
+                inserted_keys.append(key)
             elif i % 3 == 1:
+                key = inserted_keys[-1]  # read a key that really exists
                 cmd = f"GET {key}\n"
             else:
+                key = inserted_keys.pop()  # delete a key that really exists
                 cmd = f"DELETE {key}\n"
 
             start = time.perf_counter()
