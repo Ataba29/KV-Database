@@ -1,6 +1,19 @@
+<div align="center">
+
 # kv-db
 
-A lightweight, persistent key-value database built from scratch in C++, containerized with Docker. This project was built as a self-learning exercise to deeply understand systems programming, networking, persistence, and concurrency in C++.
+**A lightweight, persistent key-value database built from scratch in C++**
+
+_Redis-inspired · event-driven · cross-platform · containerized_
+
+[![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?style=flat-square&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/17)
+[![CMake](https://img.shields.io/badge/CMake-3.15%2B-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-informational?style=flat-square&logo=linux&logoColor=white)](#)
+[![Tests](https://img.shields.io/badge/tests-GoogleTest-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square)](LICENSE)
+
+</div>
 
 ---
 
@@ -10,27 +23,40 @@ kv-db is a Redis-inspired key-value store that supports basic CRUD operations ov
 
 This is a personal learning project. The goal is not to build a production database, but to understand how databases, servers, networking, and concurrency actually work under the hood.
 
-The server is designed to run cross-platform on both **Windows and Linux** using platform-specific networking abstractions.
+The server runs cross-platform on both **Windows and Linux** using platform-specific networking abstractions.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Commands](#commands)
+- [Architecture](#architecture)
+- [Concurrency Model](#concurrency-model)
+- [Rate Limiting](#rate-limiting)
+- [Getting Started](#getting-started)
+- [Build Locally](#build-locally)
+- [Run With Docker](#run-with-docker)
+- [Project Structure](#project-structure)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ---
 
 ## Features
 
-- **Custom HashMap** — hand-rolled hash table with separate chaining for collision resolution and dynamic growth, protected by a `std::shared_mutex` for concurrent read/write safety
-- **Cross-Platform Event-Driven TCP Server** — readiness-based event loop supporting many concurrent connections without one thread per client:
-  - Linux: `epoll`
-  - Windows: IOCP (adapted to a readiness-style interface via zero-byte `WSARecv`)
-  - Both implementations sit behind a shared `IEventLoop` interface, selected automatically at compile time
-- **Command Parser** — parses `INSERT`, `GET`, and `DELETE` commands from raw TCP bytes
-- **Thread Pool** — fixed pool of 3 worker threads executing actual command work (GET/INSERT/DELETE), decoupled from connection count
-- **Snapshot Scheduler** — background thread that automatically triggers RDB snapshots on a fixed interval
-- **Persistence** — hybrid durability layer combining:
-  - **AOF (Append-Only File)** — logs every write operation in real time, reset after each snapshot
-  - **RDB Snapshots** — full point-in-time dumps of the database every 5 minutes
-- **Rate Limiting** — per-IP and global request throttling using the Token Bucket algorithm
-- **Graceful Shutdown** — type `stop` to cleanly flush data and join all threads
-- **Docker Support** — multi-stage containerized build targeting Linux
-- **Authentication** — _(in progress)_
+| Feature | Description |
+|---|---|
+| 🧩 **Custom HashMap** | Hand-rolled hash table with separate chaining for collision resolution and dynamic growth, protected by a `std::shared_mutex` for concurrent read/write safety |
+| ⚡ **Event-Driven TCP Server** | Readiness-based event loop supporting many concurrent connections without one thread per client — `epoll` on Linux, IOCP on Windows (adapted via zero-byte `WSARecv`), both behind a shared `IEventLoop` interface selected automatically at compile time |
+| 🧵 **Thread Pool** | Fixed pool of 3 worker threads executing actual command work (GET/INSERT/DELETE), decoupled from connection count |
+| 📝 **Command Parser** | Parses `INSERT`, `GET`, and `DELETE` commands from raw TCP bytes |
+| 🕒 **Snapshot Scheduler** | Background thread that automatically triggers RDB snapshots on a fixed interval |
+| 💾 **Hybrid Persistence** | **AOF** logs every write in real time; **RDB** snapshots dump the full database every 5 minutes; AOF resets after each snapshot |
+| 🚦 **Rate Limiting** | Per-IP and global request throttling using the Token Bucket algorithm |
+| 🛑 **Graceful Shutdown** | Type `stop` to cleanly flush data and join all threads |
+| 🐳 **Docker Support** | Multi-stage containerized build targeting Linux |
+| 🔐 **Authentication** | _In progress_ |
 
 ---
 
@@ -43,10 +69,10 @@ ncat 127.0.0.1 6625
 ```
 
 | Command            | Description                         | Example                 |
-| ------------------ | ----------------------------------- | ----------------------- |
+| ------------------ | ------------------------------------| ------------------------|
 | `INSERT key value` | Inserts or updates a key-value pair | `INSERT Ahmed 51020651` |
-| `GET key`          | Retrieves the value for a key       | `GET Ahmed`             |
-| `DELETE key`       | Removes a key-value pair            | `DELETE Ahmed`          |
+| `GET key`          | Retrieves the value for a key       | `GET Ahmed`              |
+| `DELETE key`       | Removes a key-value pair            | `DELETE Ahmed`           |
 
 ---
 
@@ -95,14 +121,14 @@ Client (ncat / custom client)
 ## Concurrency Model
 
 | Component    | Protection                               | Strategy                                               |
-| ------------ | ---------------------------------------- | ------------------------------------------------------ |
-| Event Loop   | Single dedicated thread                  | Watches all sockets for readiness; never blocks on I/O |
-| Client jobs  | `ThreadPool` + `std::condition_variable` | Only dispatched once a socket is actually readable     |
-| Connections  | `busySockets` guard (`std::mutex`)       | Prevents duplicate recv() jobs for the same socket     |
-| HashMap      | `std::shared_mutex`                      | Multiple readers, exclusive writers                    |
-| AOF stream   | `std::mutex`                             | Single writer at a time                                |
-| Snapshot     | `SnapshotScheduler` thread               | Sleeps on interval, wakes on shutdown                  |
-| Rate limiter | `std::mutex` per map + global            | Per-IP and global window isolated                      |
+| ------------ | ----------------------------------------- | -------------------------------------------------------|
+| Event Loop   | Single dedicated thread                  | Watches all sockets for readiness; never blocks on I/O  |
+| Client jobs  | `ThreadPool` + `std::condition_variable` | Only dispatched once a socket is actually readable      |
+| Connections  | `busySockets` guard (`std::mutex`)       | Prevents duplicate recv() jobs for the same socket       |
+| HashMap      | `std::shared_mutex`                      | Multiple readers, exclusive writers                      |
+| AOF stream   | `std::mutex`                             | Single writer at a time                                  |
+| Snapshot     | `SnapshotScheduler` thread               | Sleeps on interval, wakes on shutdown                     |
+| Rate limiter | `std::mutex` per map + global            | Per-IP and global window isolated                          |
 
 ---
 
@@ -129,8 +155,8 @@ kv-db uses the **Token Bucket** algorithm for rate limiting — the same approac
 
 For local builds:
 
-- Windows: MSVC / MinGW with Winsock2
-- Linux: GCC / Clang with POSIX sockets
+- **Windows:** MSVC / MinGW with Winsock2
+- **Linux:** GCC / Clang with POSIX sockets
 
 ---
 
@@ -248,4 +274,8 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-> Built from scratch as a self-learning project to understand C++, networking, persistence, and systems programming.
+<div align="center">
+
+_Built from scratch as a self-learning project to understand C++, networking, persistence, and systems programming._
+
+</div>
