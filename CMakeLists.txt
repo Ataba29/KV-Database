@@ -16,11 +16,13 @@ add_library(KV_Core
     src/Worker/ThreadPool.cpp
     src/Worker/SnapshotScheduler.cpp
     src/Limit/Limiter.cpp
-        src/Networking/NetworkTypes.h
-        src/UserSession/UserSession.cpp
-        src/UserSession/UserSession.h
-        src/Worker/UserSessionBackgroundWorker.cpp
-        src/Worker/UserSessionBackgroundWorker.h
+    src/UserSession/UserSession.cpp
+    src/UserSession/UserSession.h
+    src/UserSession/Connection.h
+    src/Worker/UserSessionBackgroundWorker.cpp
+    src/Worker/UserSessionBackgroundWorker.h
+    src/Networking/EpollEventLoop.cpp
+    src/Networking/IocpEventLoop.cpp
 )
 
 target_include_directories(KV_Core PUBLIC 
@@ -29,6 +31,7 @@ target_include_directories(KV_Core PUBLIC
     src/Storage 
     src/Worker
     src/Limit
+    src/Networking
 )
 
 # Conditional library management depending on Target Environment OS
