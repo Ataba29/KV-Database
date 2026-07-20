@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="Logo.png" alt="KV-Database logo" width="400">
+<img src="Logo.png" alt="KV-Database logo" width="400">
 
 **A lightweight, persistent key-value database built from scratch in C++**
 
@@ -19,7 +19,7 @@ _Redis-inspired · event-driven · cross-platform · containerized_
 
 ## About
 
-kv-db is a Redis-inspired key-value store that supports basic CRUD operations over a TCP connection. It is designed around a phonebook use case where string keys map to string values.
+ByteForge is a Redis-inspired key-value store that supports basic CRUD operations over a TCP connection. It is designed around a phonebook use case where string keys map to string values.
 
 This is a personal learning project. The goal is not to build a production database, but to understand how databases, servers, networking, and concurrency actually work under the hood.
 
@@ -134,7 +134,7 @@ Client (ncat / custom client)
 
 ## Rate Limiting
 
-kv-db uses the **Token Bucket** algorithm for rate limiting — the same approach used by Stripe, GitHub, and AWS.
+ByteForge uses the **Token Bucket** algorithm for rate limiting — the same approach used by Stripe, GitHub, and AWS.
 
 - Each IP gets a bucket of tokens (default: 10)
 - Each request consumes one token
@@ -183,13 +183,13 @@ The server starts on port `6625` by default. Type `stop` to shut it down cleanly
 Build the image:
 
 ```bash
-docker build -t kv-db:latest .
+docker build -t byteforce:latest .
 ```
 
 Run the container:
 
 ```bash
-docker run -d -p 6625:6625 --name my-kv-store kv-db:latest
+docker run -d -p 6625:6625 --name my-byteforce-db byteforce-db:latest
 ```
 
 Connect using:
