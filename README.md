@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="Logo.png" alt="KV-Database logo" width="400">
+<img src="Logo.png" alt="KV-Database logo" width="450">
 
 **A lightweight, persistent key-value database built from scratch in C++**
 
