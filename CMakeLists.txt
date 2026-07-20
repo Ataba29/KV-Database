@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 
 project(KV_Database LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# C++17 Configuration
-set(CMAKE_CXX_STANDARD 17)
+# C++23 Configuration
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Turn our core logic into a LIBRARY so both the App and the Tests can use it

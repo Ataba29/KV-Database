@@ -6,8 +6,8 @@
 
 _Redis-inspired · event-driven · cross-platform · containerized_
 
-[![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?style=flat-square&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/17)
-[![CMake](https://img.shields.io/badge/CMake-3.15%2B-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/)
+[![C++](https://img.shields.io/badge/C%2B%2B-23-00599C?style=flat-square&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
+[![CMake](https://img.shields.io/badge/CMake-3.20%2B-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-informational?style=flat-square&logo=linux&logoColor=white)](#)
 [![Tests](https://img.shields.io/badge/tests-GoogleTest-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
@@ -148,8 +148,8 @@ ByteForge uses the **Token Bucket** algorithm for rate limiting — the same app
 
 ### Prerequisites
 
-- C++17 compiler
-- CMake 3.15+
+- C++23 compiler
+- CMake 3.20+
 - Docker (optional)
 - [nmap/ncat](https://nmap.org/download.html) for testing
 
