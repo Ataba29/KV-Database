@@ -11,7 +11,11 @@ int main()
 
     Server server(port);
 
-    server.start();
+    if (auto result = server.start(); !result)
+    {
+        std::cerr << "[MAIN] Failed to start server: " << result.error() << "\n";
+        return 1;
+    }
 
     // Run accept loop in background thread
     std::jthread serverThread(&Server::acceptClients, &server);

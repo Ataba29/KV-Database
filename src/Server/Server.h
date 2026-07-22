@@ -4,6 +4,8 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <expected>
+#include <string>
 #include <unordered_set>
 
 #include "UserSessionBackgroundWorker.h"
@@ -40,7 +42,7 @@ public:
      * @brief Starts the server, binds and begins listening.
      * @throws std::runtime_error if socket setup fails.
      */
-    void start();
+    std::expected<void, std::string> start();
 
     /**
      * @brief Accepts incoming client connections in a loop.

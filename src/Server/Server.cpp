@@ -55,13 +55,13 @@ Server::~Server()
     std::cout << "[SERVER] Cleanup complete\n";
 }
 
-void Server::start()
+std::expected<void, std::string> Server::start()
 {
     std::cout << "[SERVER] Binding socket...\n";
 
     if (bind(serverSocket, (sockaddr *)&serverAddr, sizeof(serverAddr)) != 0)
     {
-        throw std::runtime_error("Server Failed to Start using bind");
+        return std::unexpected("Server Failed to Start using bind");
     }
 
     std::cout << "[SERVER] Bind successful!\n";
@@ -69,7 +69,7 @@ void Server::start()
 
     if (listen(serverSocket, SOMAXCONN) != 0)
     {
-        throw std::runtime_error("Server Failed to Listen using listen");
+        return std::unexpected("Server Failed to Listen using listen");
     }
 
     std::cout << "[SERVER] Server is now accepting connections!\n";
@@ -78,6 +78,8 @@ void Server::start()
 
     // Start the event loop on its own thread now that the server is live.
     eventLoopThread = std::thread(&Server::runEventLoop, this);
+
+    return {};
 }
 
 void Server::acceptClients()
