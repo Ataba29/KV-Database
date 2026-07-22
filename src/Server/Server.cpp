@@ -234,6 +234,9 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         closeConnection(clientSocket);
         return;
     }
+    
+    // Tell compiler that bytesReceived is greater than 0 so it wont do optimizations.
+    [[assume(bytesReceived > 0)]];
     userSessionManager.update_activity(sessionKey);
 
     std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
