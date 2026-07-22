@@ -13,17 +13,6 @@
  */
 class SnapshotScheduler
 {
-private:
-    std::thread schedulerThread;            /**< Background thread that runs the scheduler loop. */
-    std::atomic<bool> active;               /**< Controls whether the scheduler is running. */
-    std::function<void()> snapshotCallback; /**< The snapshot function to call every interval. */
-    std::chrono::minutes interval;          /**< How often to take a snapshot. */
-    std::condition_variable cv;             /**< Bell that wakes up sleeping workers. */
-    std::mutex m;                           /**< Required by condition_variable for wait_for to work. */
-    /**
-     * @brief The main loop that sleeps then triggers a snapshot.
-     */
-    void run();
 
 public:
     /**
@@ -37,6 +26,18 @@ public:
      * @brief Stops the scheduler and joins the background thread.
      */
     ~SnapshotScheduler();
+
+private:
+    std::thread schedulerThread;            /**< Background thread that runs the scheduler loop. */
+    std::atomic<bool> active;               /**< Controls whether the scheduler is running. */
+    std::function<void()> snapshotCallback; /**< The snapshot function to call every interval. */
+    std::chrono::minutes interval;          /**< How often to take a snapshot. */
+    std::condition_variable cv;             /**< Bell that wakes up sleeping workers. */
+    std::mutex m;                           /**< Required by condition_variable for wait_for to work. */
+    /**
+     * @brief The main loop that sleeps then triggers a snapshot.
+     */
+    void run();
 };
 
 #endif

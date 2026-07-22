@@ -14,42 +14,6 @@
  */
 class HashMap
 {
-private:
-    /**
-     * @brief A node in the hash map's linked list.
-     *
-     * Stores the key-value pair and a pointer to the next node
-     * to handle bucket collisions via separate chaining.
-     */
-    struct Node
-    {
-        std::string key;   /**< The unique string key identifier (e.g., Name). */
-        std::string value; /**< The string data value associated with the key (e.g., Phone Number). */
-        Node *next;        /**< Pointer to the next node in the chain (nullptr if last). */
-
-        /**
-         * @brief Constructs a new Node object.
-         * @param k The string key.
-         * @param v The string value.
-         */
-        Node(const std::string &k, const std::string &v);
-    };
-
-    /** * @brief Dynamic array of Node pointers representing the hash table buckets.
-     *
-     * Since it points to an array of pointers, it requires double pointer syntax (Node**).
-     */
-    Node **table;
-
-    int capacity;                 /**< The total size of the table array (number of available buckets). */
-    mutable std::shared_mutex sm; /** A mutex that protects the hashmap from 2 writer threads writing at the same time */
-
-    /**
-     * @brief Converts a string key into an array index.
-     * @param key The string key to be hashed.
-     * @return An integer index between 0 and capacity - 1.
-     */
-    int hashFunction(const std::string& key) const;
 
 public:
     /**
@@ -88,6 +52,43 @@ public:
      * @param callback A function to call for each key-value pair.
      */
     void forEach(std::function<void(const std::string &, const std::string &)> callback) const;
+
+private:
+    /**
+     * @brief A node in the hash map's linked list.
+     *
+     * Stores the key-value pair and a pointer to the next node
+     * to handle bucket collisions via separate chaining.
+     */
+    struct Node
+    {
+        std::string key;   /**< The unique string key identifier (e.g., Name). */
+        std::string value; /**< The string data value associated with the key (e.g., Phone Number). */
+        Node *next;        /**< Pointer to the next node in the chain (nullptr if last). */
+
+        /**
+         * @brief Constructs a new Node object.
+         * @param k The string key.
+         * @param v The string value.
+         */
+        Node(const std::string &k, const std::string &v);
+    };
+
+    /** * @brief Dynamic array of Node pointers representing the hash table buckets.
+     *
+     * Since it points to an array of pointers, it requires double pointer syntax (Node**).
+     */
+    Node **table;
+
+    int capacity;                 /**< The total size of the table array (number of available buckets). */
+    mutable std::shared_mutex sm; /** A mutex that protects the hashmap from 2 writer threads writing at the same time */
+
+    /**
+     * @brief Converts a string key into an array index.
+     * @param key The string key to be hashed.
+     * @return An integer index between 0 and capacity - 1.
+     */
+    int hashFunction(const std::string &key) const;
 };
 
 #endif

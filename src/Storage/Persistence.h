@@ -15,11 +15,6 @@
  */
 class Persistence
 {
-private:
-    std::ofstream aof_stream;                      /**< Persistent file stream handle for real-time logging. */
-    const std::string aof_path = "appendonly.log"; /**< File path for the transaction log file. */
-    const std::string rdb_path = "snapshot.log";   /**< File path for the point-in-time snapshot file. */
-    std::mutex aof_mutex;                          /**< Protects aof_stream from concurrent access. */
 
 public:
     /**
@@ -71,6 +66,12 @@ public:
      * @param hashmap A constant reference to the in-memory HashMap data source.
      */
     void createSnapshot(const HashMap &hashmap);
+
+private:
+    std::ofstream aof_stream;                      /**< Persistent file stream handle for real-time logging. */
+    const std::string aof_path = "appendonly.log"; /**< File path for the transaction log file. */
+    const std::string rdb_path = "snapshot.log";   /**< File path for the point-in-time snapshot file. */
+    std::mutex aof_mutex;                          /**< Protects aof_stream from concurrent access. */
 };
 
 #endif

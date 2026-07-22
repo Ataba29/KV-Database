@@ -15,6 +15,28 @@
  */
 class RateLimiter
 {
+
+public:
+    /**
+     * @brief Constructs the rate limiter.
+     * @param maxTokens Max burst capacity per IP (default: 10).
+     * @param refillRate Tokens refilled per second per IP (default: 5).
+     * @param globalLimit Max total requests per second (default: 1000).
+     */
+    RateLimiter(double maxTokens = 10, double refillRate = 5, int globalLimit = 1000);
+
+    /**
+     * @brief Destroys the rate limiter and clears all state.
+     */
+    ~RateLimiter();
+
+    /**
+     * @brief Checks if a request from the given IP should be allowed.
+     * @param ip The raw client IP address
+     * @return true if allowed, false if rate limited.
+     */
+    bool isAllowed(uint32_t ip);
+
 private:
     /**
      * @brief Token bucket state for a single IP address.
@@ -26,7 +48,7 @@ private:
     };
 
     std::unordered_map<uint32_t, IPRecord> ipRecords; /**< Per-IP bucket state. */
-    std::mutex mapMutex;                                 /**< Protects ipRecords from concurrent access. */
+    std::mutex mapMutex;                              /**< Protects ipRecords from concurrent access. */
 
     std::atomic<int> globalCount;                            /**< Total requests in current global window. */
     std::chrono::steady_clock::time_point globalWindowStart; /**< Start of current global window. */
@@ -49,27 +71,6 @@ private:
      *         allowed, false if the IP is rate limited.
      */
     bool isAllowedPrivate(uint32_t ip);
-
-public:
-    /**
-     * @brief Constructs the rate limiter.
-     * @param maxTokens Max burst capacity per IP (default: 10).
-     * @param refillRate Tokens refilled per second per IP (default: 5).
-     * @param globalLimit Max total requests per second (default: 1000).
-     */
-    RateLimiter(double maxTokens = 10, double refillRate = 5, int globalLimit = 1000);
-
-    /**
-     * @brief Destroys the rate limiter and clears all state.
-     */
-    ~RateLimiter();
-
-    /**
-     * @brief Checks if a request from the given IP should be allowed.
-     * @param ip The raw client IP address
-     * @return true if allowed, false if rate limited.
-     */
-    bool isAllowed(uint32_t ip);
 };
 
 #endif

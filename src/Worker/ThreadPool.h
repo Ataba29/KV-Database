@@ -18,12 +18,6 @@
  */
 class ThreadPool
 {
-private:
-    std::queue<std::function<void()>> jobs; /**< Queue of pending jobs to be executed. */
-    std::vector<std::thread> threads;       /**< Pool of worker threads. */
-    std::mutex m;                           /**< Mutex protecting the job queue. */
-    std::condition_variable cv;             /**< Bell that wakes up sleeping workers. */
-    std::atomic<bool> active;               /**< Controls whether the pool is running. */
 
 public:
     /**
@@ -42,6 +36,13 @@ public:
      * @param job A callable with no arguments or return value.
      */
     void acceptJob(std::function<void()> job);
+
+private:
+    std::queue<std::function<void()>> jobs; /**< Queue of pending jobs to be executed. */
+    std::vector<std::thread> threads;       /**< Pool of worker threads. */
+    std::mutex m;                           /**< Mutex protecting the job queue. */
+    std::condition_variable cv;             /**< Bell that wakes up sleeping workers. */
+    std::atomic<bool> active;               /**< Controls whether the pool is running. */
 };
 
 #endif
