@@ -42,6 +42,7 @@ public:
     /**
      * @brief Starts the server, binds and begins listening.
      * @throws std::runtime_error if socket setup fails.
+     * @return on success returns void, on failure a string
      */
     std::expected<void, std::string> start();
 
