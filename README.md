@@ -189,7 +189,7 @@ docker build -t byteforce:latest .
 Run the container:
 
 ```bash
-docker run -d -p 6625:6625 --name my-byteforce-db byteforce-db:latest
+docker run -d -p 6625:6625 --name my-byteforce-db byteforce:latest
 ```
 
 Connect using:
