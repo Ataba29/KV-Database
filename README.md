@@ -183,13 +183,13 @@ The server starts on port `6625` by default. Type `stop` to shut it down cleanly
 Build the image:
 
 ```bash
-docker build -t byteforce:latest .
+docker build -t byteforge:latest .
 ```
 
 Run the container:
 
 ```bash
-docker run -d -p 6625:6625 --name my-byteforce-db byteforce:latest
+docker run -d -p 6625:6625 --name my-byteforge-db byteforge:latest
 ```
 
 Connect using:
