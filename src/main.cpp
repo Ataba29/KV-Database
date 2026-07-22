@@ -14,7 +14,7 @@ int main()
     server.start();
 
     // Run accept loop in background thread
-    std::thread serverThread(&Server::acceptClients, &server);
+    std::jthread serverThread(&Server::acceptClients, &server);
 
     std::cout << "[MAIN] Server running. Type 'stop' to shut it down.\n";
 
@@ -33,9 +33,6 @@ int main()
             break;
         }
     }
-
-    // Wait for server thread to finish
-    serverThread.join();
 
     std::cout << "[MAIN] Server exited cleanly\n";
 
