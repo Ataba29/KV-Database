@@ -55,7 +55,7 @@ TEST(HashMapTests, HandledRemoveWhenKeyIsntInHashmap)
     EXPECT_EQ(map.get(key), value);
 }
 
-TEST(HashMapConcurrencyTests, HandlesConcurrentInsertsSafely)
+TEST(HashMapTests, HandlesConcurrentInsertsSafely)
 {
     HashMap map{5}; // The map is small to make sure that there is many collitions
     const int num_threads = 5;
