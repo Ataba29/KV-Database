@@ -17,10 +17,7 @@ add_library(KV_Core
     src/Worker/SnapshotScheduler.cpp
     src/Limit/Limiter.cpp
     src/UserSession/UserSession.cpp
-    src/UserSession/UserSession.h
-    src/UserSession/Connection.h
     src/Worker/UserSessionBackgroundWorker.cpp
-    src/Worker/UserSessionBackgroundWorker.h
     src/Networking/EpollEventLoop.cpp
     src/Networking/IocpEventLoop.cpp
 )
