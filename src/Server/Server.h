@@ -7,6 +7,8 @@
 #include <expected>
 #include <string>
 #include <unordered_set>
+#include <flat_map>
+#include <flat_set>
 
 #include "UserSessionBackgroundWorker.h"
 #include "../RAM/HashMap.h"
@@ -76,11 +78,11 @@ private:
     RateLimiter rt;                                             /** Server owns an instance of RateLimter class */
     UserSessionManager userSessionManager;                      /** Managing User Sessions */
     UserSessionBackgroundWorker user_session_background_worker; /** Background worker that sweeps expired sessions*/
-    std::unordered_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
+    std::flat_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
     std::unique_ptr<IEventLoop> eventLoop;                      /** Watches all client sockets for readiness */
     std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
     std::mutex busyMutex;                                       /** Guards busySockets */
-    std::unordered_set<SocketType> busySockets;                 /** Sockets with a recv job already queued/running */
+    std::flat_set<SocketType> busySockets;                 /** Sockets with a recv job already queued/running */
 
     /**
      * @brief Runs continuously on eventLoopThread: waits for socket readiness
