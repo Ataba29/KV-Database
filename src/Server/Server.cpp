@@ -168,8 +168,10 @@ void Server::runEventLoop()
                 std::lock_guard<std::mutex> lock(expiredMutex);
                 close.swap(expiredSockets);
             }
-            for (auto &cl : close)
-                closeConnection(cl);
+            for (auto &sock : close){
+                std::cout << "[SERVER] Closing expired connection, socket " << sock << "\n";
+                closeConnection(sock);
+            }
         }
         int numEvents = eventLoop->wait(events);
         if (numEvents == -1)
@@ -319,6 +321,7 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
 
 void Server::onSessionExpired(SocketType sock)
 {
+    std::cout << "[SERVER] Session expired, queuing socket " << sock << " for close\n";
     std::lock_guard<std::mutex> lock(expiredMutex);
     expiredSockets.push_back(sock);
 }

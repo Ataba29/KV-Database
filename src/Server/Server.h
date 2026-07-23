@@ -6,7 +6,7 @@
 #include <mutex>
 #include <unordered_set>
 
-#include "UserSessionBackgroundWorker.h"
+#include "../Worker/UserSessionBackgroundWorker.h"
 #include "../RAM/HashMap.h"
 #include "../Storage/Persistence.h"
 #include "../Worker/ThreadPool.h"
