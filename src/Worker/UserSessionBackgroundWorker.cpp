@@ -29,7 +29,7 @@ void UserSessionBackgroundWorker::run() {
         if (!active) {
             break;
         }
-        std::cout << "UserSessionBackgroundWorker::run()" << std::endl;
+        std::cout << "[USBM] Running looking for idle connections" << std::endl;
         lock.unlock();
         this->user_sessions.cleanup_expired_sessions();
     }
