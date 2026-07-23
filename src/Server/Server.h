@@ -42,6 +42,8 @@ private:
     std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
     std::mutex busyMutex;                                       /** Guards busySockets */
     std::unordered_set<SocketType> busySockets;                 /** Sockets with a recv job already queued/running */
+    std::mutex expiredMutex;                                    /** Mutex to guard the expiredSockets vector */
+    std::vector<SocketType> expiredSockets;                     /** Notifys the event loop of connections to remove */
 
     /**
      * @brief Runs continuously on eventLoopThread: waits for socket readiness
@@ -91,6 +93,12 @@ public:
      * @param sessionKey The session tied to this client.
      */
     void messageHandler(SocketType clientSocket, const SessionKey &sessionKey);
+
+    /**
+     * @brief Adds sockets that are expired into the expired vector to be removed later by eventloop
+     * @param sock which is the client socket that is to be removed
+     */
+    void onSessionExpired(SocketType sock);
 };
 
 #endif
