@@ -121,7 +121,10 @@ void Server::acceptClients()
             CloseSocket(AcceptSocket);
             continue;
         }
-        connections[AcceptSocket] = Connection{AcceptSocket, active_key};
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex);
+            connections[AcceptSocket] = Connection{AcceptSocket, active_key};
+        }
         eventLoop->add(AcceptSocket);
         std::cout << "[SERVER] Client connected and registered!\n";
     }
@@ -162,9 +165,14 @@ void Server::runEventLoop()
         {
             if (entry.event == IOEvent::Readable)
             {
-                auto it = connections.find(entry.socket);
-                if (it == connections.end())
-                    continue; // already cleaned up
+                Connection conn;
+                {
+                    std::lock_guard<std::mutex> lock(connectionsMutex);
+                    auto it = connections.find(entry.socket);
+                    if (it == connections.end())
+                        continue; // already cleaned up
+                    conn = it->second; // small struct, cheap to copy
+                }
 
                 {
                     std::lock_guard<std::mutex> lock(busyMutex);
@@ -176,7 +184,6 @@ void Server::runEventLoop()
                     busySockets.insert(entry.socket);
                 }
 
-                Connection conn = it->second; // small struct, cheap to copy
                 tpool.acceptJob([this, conn]()
                                 {
                                     messageHandler(conn.socket, conn.sessionKey);
@@ -195,11 +202,14 @@ void Server::closeConnection(SocketType sock)
 {
     eventLoop->remove(sock);
 
-    auto it = connections.find(sock);
-    if (it != connections.end())
     {
-        userSessionManager.remove_session(it->second.sessionKey);
-        connections.erase(it);
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+        auto it = connections.find(sock);
+        if (it != connections.end())
+        {
+            userSessionManager.remove_session(it->second.sessionKey);
+            connections.erase(it);
+        }
     }
 
     CloseSocket(sock);

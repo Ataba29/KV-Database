@@ -37,6 +37,7 @@ private:
     RateLimiter rt;                                             /** Server owns an instance of RateLimter class */
     UserSessionManager userSessionManager;                      /** Managing User Sessions */
     UserSessionBackgroundWorker user_session_background_worker; /** Background worker that sweeps expired sessions*/
+    std::mutex connectionsMutex;                                /**< Guards concurrent access to connections from the accept, event-loop, and thread-pool worker threads. */
     std::unordered_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
     std::unique_ptr<IEventLoop> eventLoop;                      /** Watches all client sockets for readiness */
     std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
