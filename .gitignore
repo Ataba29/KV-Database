@@ -8,6 +8,8 @@ CMakeFiles/
 CMakeScripts/
 cmake_install.cmake
 Makefile
+.venv/
+__pycache__/
 
 # ==========================================
 # Compiled Executables and Libraries and Logs
