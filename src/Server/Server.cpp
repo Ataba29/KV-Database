@@ -163,27 +163,14 @@ void Server::runEventLoop()
             if (entry.event == IOEvent::Readable)
             {
                 auto it = connections.find(entry.socket);
-                if (it == connections.end())
-                    continue; // already cleaned up
-
-                {
-                    std::lock_guard<std::mutex> lock(busyMutex);
-                    // A job for this socket is already queued or running -
-                    // skip this notification. Level-triggered epoll will
-                    // notify us again next wait() if data is still unread.
-                    if (busySockets.count(entry.socket))
-                        continue;
-                    busySockets.insert(entry.socket);
-                }
+                if (it == connections.end()) continue;
 
                 Connection conn = it->second; // small struct, cheap to copy
-                tpool.acceptJob([this, conn]()
-                                {
-                                    messageHandler(conn.socket, conn.sessionKey);
-                                    std::lock_guard<std::mutex> lock(busyMutex);
-                                    busySockets.erase(conn.socket); });
-            }
-            else // HangUp or Error
+                // wont fire again until we re-arm it.
+                tpool.acceptJob([this, conn] {
+                    messageHandler(conn.socket, conn.sessionKey);
+                });
+            } else // HangUp or Error
             {
                 closeConnection(entry.socket);
             }
@@ -228,6 +215,7 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
             // Nothing to read right now - a different job for this socket
             // already drained it, or epoll notified us before this job
             // got scheduled. Not an error, just nothing to do.
+            this->rearmSocket(clientSocket);
             return;
         }
         std::cout << "[CLIENT] recv error, disconnecting\n";
@@ -258,6 +246,7 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         {
             std::string response = "Empty Value Recieved, Try again\n";
             send(clientSocket, response.c_str(), response.length(), 0);
+            this->rearmSocket(clientSocket);
             return;
         }
 
@@ -297,5 +286,17 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
 
         std::string response = "No command was received\n";
         send(clientSocket, response.c_str(), response.length(), 0);
+    }
+
+    //Re-enable epoll notifications for the next command from this client
+    this->rearmSocket(clientSocket);
+}
+
+void Server::rearmSocket(SocketType clientSocket)
+{
+    if (!eventLoop->rearm(clientSocket))
+    {
+        std::cout << "[SERVER] Failed to re-arm socket " << clientSocket << ", closing.\n";
+        closeConnection(clientSocket);
     }
 }

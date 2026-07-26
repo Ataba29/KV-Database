@@ -49,6 +49,7 @@ public:
     void add(SocketType sock) override;
     void remove(SocketType sock) override;
     int wait(std::vector<EventLoopEntry> &out) override;
+    bool rearm(SocketType sock) override;
 
 private:
     /// Posts (or re-posts) the zero-byte WSARecv that arms readiness notification for a socket.

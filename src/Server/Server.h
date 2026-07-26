@@ -40,8 +40,6 @@ private:
     std::unordered_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
     std::unique_ptr<IEventLoop> eventLoop;                      /** Watches all client sockets for readiness */
     std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
-    std::mutex busyMutex;                                       /** Guards busySockets */
-    std::unordered_set<SocketType> busySockets;                 /** Sockets with a recv job already queued/running */
 
     /**
      * @brief Runs continuously on eventLoopThread: waits for socket readiness
@@ -91,6 +89,16 @@ public:
      * @param sessionKey The session tied to this client.
      */
     void messageHandler(SocketType clientSocket, const SessionKey &sessionKey);
+
+    /**
+    * What it is: An explicit call (epoll_ctl with EPOLL_CTL_MOD) executed when a thread finishes its work.
+    *    What it does: Unmutes the socket so epoll can start listening for network activity again.
+     *   Why we use it: Because EPOLLONESHOT completely mutes the socket, it will stay dead forever unless re-armed.
+     *   Every exit path in your thread—whether it finished a full message or is waiting for more bytes (fragmentation)—must call rearm().
+     *
+     * @param clientSocket
+     */
+    void rearmSocket(SocketType clientSocket);
 };
 
 #endif
