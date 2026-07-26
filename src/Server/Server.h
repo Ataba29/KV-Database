@@ -40,8 +40,6 @@ private:
     std::unordered_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
     std::unique_ptr<IEventLoop> eventLoop;                      /** Watches all client sockets for readiness */
     std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
-    std::mutex busyMutex;                                       /** Guards busySockets */
-    std::unordered_set<SocketType> busySockets;                 /** Sockets with a recv job already queued/running */
     std::mutex expiredMutex;                                    /** Mutex to guard the expiredSockets vector */
     std::vector<SocketType> expiredSockets;                     /** Notifys the event loop of connections to remove */
 
@@ -99,6 +97,16 @@ public:
      * @param sock which is the client socket that is to be removed
      */
     void onSessionExpired(SocketType sock);
+
+    /**
+    * What it is: An explicit call (epoll_ctl with EPOLL_CTL_MOD) executed when a thread finishes its work.
+    *    What it does: Unmutes the socket so epoll can start listening for network activity again.
+     *   Why we use it: Because EPOLLONESHOT completely mutes the socket, it will stay dead forever unless re-armed.
+     *   Every exit path in your thread—whether it finished a full message or is waiting for more bytes (fragmentation)—must call rearm().
+     *
+     * @param clientSocket
+     */
+    void rearmSocket(SocketType clientSocket);
 };
 
 #endif
