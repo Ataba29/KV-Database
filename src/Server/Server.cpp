@@ -121,7 +121,7 @@ void Server::acceptClients()
             CloseSocket(AcceptSocket);
             continue;
         }
-        connections[AcceptSocket] = Connection{AcceptSocket, active_key};
+        connections[AcceptSocket] = std::make_shared<Connection>(AcceptSocket, active_key);
         eventLoop->add(AcceptSocket);
         std::cout << "[SERVER] Client connected and registered!\n";
     }
@@ -165,10 +165,10 @@ void Server::runEventLoop()
                 auto it = connections.find(entry.socket);
                 if (it == connections.end()) continue;
 
-                Connection conn = it->second; // small struct, cheap to copy
+                std::shared_ptr<Connection> user_connection = it->second; // No Copy
                 // wont fire again until we re-arm it.
-                tpool.acceptJob([this, conn] {
-                    messageHandler(conn.socket, conn.sessionKey);
+                tpool.acceptJob([this, conn = std::move(user_connection)] {
+                    messageHandler(conn);
                 });
             } else // HangUp or Error
             {
@@ -185,21 +185,22 @@ void Server::closeConnection(SocketType sock)
     auto it = connections.find(sock);
     if (it != connections.end())
     {
-        userSessionManager.remove_session(it->second.sessionKey);
+        userSessionManager.remove_session(it->second->sessionKey);
         connections.erase(it);
     }
 
     CloseSocket(sock);
 }
 
-void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKey)
+void Server::messageHandler(std::shared_ptr<Connection> clientConnection)
 {
     std::cout << "[CLIENT] Handling client message\n";
 
-    char buffer[1024];
+    char tempBuffer[1024];
+    SocketType clientSocket = clientConnection->socket;
 
     // On Linux, the buffer is safely passed to standard recv
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+    int bytesReceived = recv(clientSocket, tempBuffer, sizeof(tempBuffer), 0);
 
     if (bytesReceived == 0)
     {
@@ -222,13 +223,30 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         closeConnection(clientSocket);
         return;
     }
-    userSessionManager.update_activity(sessionKey);
+
+    clientConnection->commandBuffer.append(tempBuffer, bytesReceived);
+
+    if (clientConnection->commandBuffer.length() > this->MAX_COMMAND_BUFFER_LENGTH) {
+        std::cout << "[CLIENT] Client is abusing the command buffer disconnecting them\n";
+        closeConnection(clientSocket);
+        return;
+    }
+
+    if (clientConnection->commandBuffer.find('\n') == std::string::npos) {
+        this->rearmSocket(clientSocket);
+        return;
+    }
+
+
+
+    userSessionManager.update_activity(clientConnection->sessionKey);
 
     std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
-    std::string message(buffer, bytesReceived);
+    std::string message = clientConnection->commandBuffer;
     std::cout << "[CLIENT] Message: " << message << "\n";
     std::istringstream iss(message);
     std::string command, key, value;
+    clientConnection->commandBuffer.clear();
 
     iss >> command;
     iss >> key;

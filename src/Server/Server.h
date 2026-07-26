@@ -37,7 +37,7 @@ private:
     RateLimiter rt;                                             /** Server owns an instance of RateLimter class */
     UserSessionManager userSessionManager;                      /** Managing User Sessions */
     UserSessionBackgroundWorker user_session_background_worker; /** Background worker that sweeps expired sessions*/
-    std::unordered_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
+    std::unordered_map<SocketType, std::shared_ptr<Connection>> connections;     /** Client connections, keyed by socket */
     std::unique_ptr<IEventLoop> eventLoop;                      /** Watches all client sockets for readiness */
     std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
 
@@ -85,10 +85,10 @@ public:
     /**
      * @brief Handles one ready-to-read event for a client: one recv() call,
      *        command parsing, and response.
-     * @param clientSocket The socket that has data available.
-     * @param sessionKey The session tied to this client.
+     * @param userConnection The user connection
+     *
      */
-    void messageHandler(SocketType clientSocket, const SessionKey &sessionKey);
+    void messageHandler(std::shared_ptr<Connection> userConnection);
 
     /**
     * What it is: An explicit call (epoll_ctl with EPOLL_CTL_MOD) executed when a thread finishes its work.
@@ -99,6 +99,9 @@ public:
      * @param clientSocket
      */
     void rearmSocket(SocketType clientSocket);
+
+
+    uint16_t MAX_COMMAND_BUFFER_LENGTH = 2024;
 };
 
 #endif
