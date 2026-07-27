@@ -240,6 +240,7 @@ void Server::runEventLoop()
 
 void Server::closeConnection(SocketType sock)
 {
+    std::cout << "[SERVER] Socket closing connection: " << sock << "\n";
     eventLoop->remove(sock);
 
     {
@@ -307,7 +308,8 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         if (value.empty())
         {
             std::string response = "Empty Value Recieved, Try again\n";
-            send(clientSocket, response.c_str(), response.length(), 0);
+            int sent = send(clientSocket, response.c_str(), response.length(), 0);
+            std::cout << "[SERVER] send() returned " << sent << "\n";
             return;
         }
 
@@ -315,7 +317,8 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         pers.appendToLog(command, key, value);
 
         std::string response = "Insert command was successful\n";
-        send(clientSocket, response.c_str(), response.length(), 0);
+        int sent = send(clientSocket, response.c_str(), response.length(), 0);
+        std::cout << "[SERVER] send() returned " << sent << "\n";
     }
     else if (command == "GET")
     {
@@ -329,7 +332,8 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         else
             response = "Get command was successful but key dont exist\n";
 
-        send(clientSocket, response.c_str(), response.length(), 0);
+        int sent = send(clientSocket, response.c_str(), response.length(), 0);
+        std::cout << "[SERVER] send() returned " << sent << "\n";
     }
     else if (command == "DELETE")
     {
@@ -339,14 +343,16 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         pers.appendToLog(command, key, "");
 
         std::string response = "Delete command was successful\n";
-        send(clientSocket, response.c_str(), response.length(), 0);
+        int sent = send(clientSocket, response.c_str(), response.length(), 0);
+        std::cout << "[SERVER] send() returned " << sent << "\n";
     }
     else
     {
         std::cout << "[SERVER] Unknown command received\n";
 
         std::string response = "No command was received\n";
-        send(clientSocket, response.c_str(), response.length(), 0);
+        int sent = send(clientSocket, response.c_str(), response.length(), 0);
+        std::cout << "[SERVER] send() returned " << sent << "\n";
     }
 }
 
