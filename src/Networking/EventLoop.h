@@ -65,6 +65,9 @@ public:
      *         nothing ready, or -1 on error.
      */
     virtual int wait(std::vector<EventLoopEntry> &out) = 0;
+
+    // Explained inside the Server.h
+    virtual bool rearm(SocketType sock) = 0;
 };
 
 #endif // KV_DATABASE_EVENTLOOP_H

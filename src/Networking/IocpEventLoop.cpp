@@ -82,10 +82,17 @@ int IocpEventLoop::wait(std::vector<EventLoopEntry> &out)
         // recv() next; if THAT returns 0, that's how a graceful close is
         // detected - same pattern as epoll's EPOLLIN + recv()==0 on Linux.
         out.push_back(EventLoopEntry{sock, IOEvent::Readable});
-        armRead(sock); // re-arm so we're notified again for the next batch of data
+        // We no longer auto-rearm here. The worker thread is now responsible
+        // for calling rearm() once it finishes processing fragmentation.
     }
 
     return 1;
+}
+
+bool IocpEventLoop::rearm(SocketType sock)
+{
+    armRead(sock);
+    return true; // WSARecv failures handle themselves asynchronously in wait()
 }
 
 #endif //_WIN32
