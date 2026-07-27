@@ -35,11 +35,11 @@ target_include_directories(KV_Core PUBLIC
 )
 
 # Conditional library management depending on Target Environment OS
+find_package(Threads REQUIRED)
+target_link_libraries(KV_Core PRIVATE Threads::Threads)
+
 if(WIN32)
     target_link_libraries(KV_Core PRIVATE ws2_32)
-else()
-    find_package(Threads REQUIRED)
-    target_link_libraries(KV_Core PRIVATE Threads::Threads)
 endif()
 
 # Build the main executable
