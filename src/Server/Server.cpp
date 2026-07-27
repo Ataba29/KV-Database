@@ -171,7 +171,21 @@ void Server::runEventLoop()
                 std::lock_guard<std::mutex> lock(expiredMutex);
                 close.swap(expiredSockets);
             }
-            for (auto &sock : close){
+            for (auto &sock : close)
+            {
+                bool stillValid = false;
+                {
+                    std::lock_guard<std::mutex> lock(connectionsMutex);
+                    stillValid = connections.find(sock) != connections.end();
+                } // release lock BEFORE calling closeConnection
+
+                if (!stillValid)
+                {
+                    std::cout << "[SERVER] Skipping expired socket " << sock
+                              << " - already replaced/closed\n";
+                    continue;
+                }
+
                 std::cout << "[SERVER] Closing expired connection, socket " << sock << "\n";
                 closeConnection(sock);
             }
@@ -189,7 +203,7 @@ void Server::runEventLoop()
                     std::lock_guard<std::mutex> lock(connectionsMutex);
                     auto it = connections.find(entry.socket);
                     if (it == connections.end())
-                        continue; // already cleaned up
+                        continue;      // already cleaned up
                     conn = it->second; // small struct, cheap to copy
                 }
 
@@ -205,7 +219,14 @@ void Server::runEventLoop()
 
                 tpool.acceptJob([this, conn]()
                                 {
+                                    try {
                                     messageHandler(conn.socket, conn.sessionKey);
+                                    } catch (const std::exception& e) {
+                                        std::cout << "[SERVER] Exception in job: " << e.what() << "\n";
+                                    } catch (...) {
+                                        std::cout << "[SERVER] Unknown exception in job\n";
+                                    }
+
                                     std::lock_guard<std::mutex> lock(busyMutex);
                                     busySockets.erase(conn.socket); });
             }

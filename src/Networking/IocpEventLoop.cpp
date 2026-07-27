@@ -14,22 +14,25 @@ IocpEventLoop::~IocpEventLoop()
 
 void IocpEventLoop::add(SocketType sock)
 {
-    // Associate this socket with the completion port. The socket itself
-    // is used as the "completion key" so wait() can identify it later.
     CreateIoCompletionPort((HANDLE)sock, iocpHandle, (ULONG_PTR)sock, 0);
 
     auto context = std::make_unique<IocpContext>();
     context->socket = sock;
     ZeroMemory(&context->overlapped, sizeof(OVERLAPPED));
     context->buffer.buf = &context->dummy;
-    context->buffer.len = 0; // zero-byte: completes on arrival, consumes nothing
+    context->buffer.len = 0;
 
-    contexts[sock] = std::move(context);
+    {
+        std::lock_guard<std::mutex> lock(contextsMutex);
+        contexts[sock] = std::move(context);
+    }
     armRead(sock);
 }
 
+
 void IocpEventLoop::armRead(SocketType sock)
 {
+    std::lock_guard<std::mutex> lock(contextsMutex);
     auto it = contexts.find(sock);
     if (it == contexts.end())
         return;
@@ -37,19 +40,13 @@ void IocpEventLoop::armRead(SocketType sock)
     IocpContext *ctx = it->second.get();
     DWORD flags = 0;
     DWORD bytesRecvd = 0;
-
     WSARecv(sock, &ctx->buffer, 1, &bytesRecvd, &flags, &ctx->overlapped, nullptr);
-    // WSA_IO_PENDING is the expected outcome here - it means "queued,
-    // will complete later," not an error. Its eventual completion (or
-    // failure) surfaces later through wait().
 }
 
 void IocpEventLoop::remove(SocketType sock)
 {
+    std::lock_guard<std::mutex> lock(contextsMutex);
     contexts.erase(sock);
-    // IOCP has no direct "unregister" call. Once the caller closes the
-    // socket itself (via CloseSocket), the OS tears down its association
-    // with the port automatically.
 }
 
 int IocpEventLoop::wait(std::vector<EventLoopEntry> &out)

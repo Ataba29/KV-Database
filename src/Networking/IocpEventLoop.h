@@ -7,6 +7,7 @@
 #include <windows.h>
 #include <unordered_map>
 #include <memory>
+#include <mutex>
 
 /**
  * @file IocpEventLoop.h
@@ -56,6 +57,9 @@ private:
 
     /// Handle to the completion port itself.
     HANDLE iocpHandle;
+
+    /// Solves windows bug
+    std::mutex contextsMutex;
 
     /// Per-socket context objects, keyed by socket, kept alive while a recv is pending.
     std::unordered_map<SocketType, std::unique_ptr<IocpContext>> contexts;
