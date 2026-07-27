@@ -141,9 +141,12 @@ void Server::stop()
     std::cout << "[SERVER] Stop requested...\n";
 
     running = false;
-    for (auto &[sock, conn] : connections)
-        CloseSocket(sock);
-    connections.clear();
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+        for (auto &[sock, conn] : connections)
+            CloseSocket(sock);
+        connections.clear();
+    }
     userSessionManager.close_all_sessions();
     CloseSocket(serverSocket);
     // Forces accept() loop to unblock by breaking the file descriptor channel
@@ -232,6 +235,7 @@ void Server::runEventLoop()
             }
             else // HangUp or Error
             {
+                std::cout << "[EPool] HangUp or error, disconnecting " << entry.socket << "\n";
                 closeConnection(entry.socket);
             }
         }
@@ -240,7 +244,9 @@ void Server::runEventLoop()
 
 void Server::closeConnection(SocketType sock)
 {
-    std::cout << "[SERVER] Socket closing connection: " << sock << "\n";
+    std::cout << "[SERVER] closeConnection(" << sock
+              << ") thread=" << std::this_thread::get_id()
+              << "\n";
     eventLoop->remove(sock);
 
     {
@@ -268,7 +274,7 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
     if (bytesReceived == 0)
     {
         // A graceful close: the client actually hung up.
-        std::cout << "[CLIENT] Client disconnected\n";
+        std::cout << "[CLIENT] recv returned 0 on socket " << clientSocket << "\n";
         closeConnection(clientSocket);
         return;
     }
@@ -281,7 +287,7 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
             // got scheduled. Not an error, just nothing to do.
             return;
         }
-        std::cout << "[CLIENT] recv error, disconnecting\n";
+        std::cout << "[CLIENT] recv error, disconnecting " << clientSocket << "\n";
         closeConnection(clientSocket);
         return;
     }

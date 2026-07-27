@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 
 import pytest
 from client import ByteForgeClient
@@ -74,6 +75,7 @@ def test_rate_limiter_blocks_excess_connections():
             s = socket.create_connection((host, port), timeout=1.0)
             s.sendall(b"GET volt\n")
             data = s.recv(1024)
+            s.shutdown(socket.SHUT_RDWR)
             s.close()
 
             if data == b"":
@@ -82,5 +84,5 @@ def test_rate_limiter_blocks_excess_connections():
         except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, OSError):
             blocked = True
             break
-
+    time.sleep(0.2)
     assert blocked, f"Expected at least one blocked connection within {max_attempts} attempts"
