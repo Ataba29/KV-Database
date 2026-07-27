@@ -11,6 +11,10 @@ Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
 
     eventLoop = makeEventLoop();
 
+    userSessionManager.set_on_session_expired(
+        [this](SocketType sock)
+        { onSessionExpired(sock); });
+
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -137,6 +141,9 @@ void Server::stop()
     std::cout << "[SERVER] Stop requested...\n";
 
     running = false;
+    for (auto &[sock, conn] : connections)
+        CloseSocket(sock);
+    connections.clear();
     userSessionManager.close_all_sessions();
     CloseSocket(serverSocket);
     // Forces accept() loop to unblock by breaking the file descriptor channel
@@ -157,6 +164,18 @@ void Server::runEventLoop()
 
     while (running)
     {
+        // Close all the expired connections
+        {
+            std::vector<SocketType> close;
+            {
+                std::lock_guard<std::mutex> lock(expiredMutex);
+                close.swap(expiredSockets);
+            }
+            for (auto &sock : close){
+                std::cout << "[SERVER] Closing expired connection, socket " << sock << "\n";
+                closeConnection(sock);
+            }
+        }
         int numEvents = eventLoop->wait(events);
         if (numEvents == -1)
             continue; // wait() itself failed, try again
@@ -308,4 +327,11 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         std::string response = "No command was received\n";
         send(clientSocket, response.c_str(), response.length(), 0);
     }
+}
+
+void Server::onSessionExpired(SocketType sock)
+{
+    std::cout << "[SERVER] Session expired, queuing socket " << sock << " for close\n";
+    std::lock_guard<std::mutex> lock(expiredMutex);
+    expiredSockets.push_back(sock);
 }
