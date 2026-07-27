@@ -11,6 +11,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <functional>
 
 
 /**
@@ -88,7 +89,17 @@ public:
      */
     void close_all_sessions();
 
+    /**
+     * @brief Registers a callback fired when a session expires from idle timeout.
+     * @param cb Invoked with the session's socket, before the session is erased.
+     */
+    void set_on_session_expired(std::function<void(SocketType)> cb);
+
 private:
+
+    /** @brief Fired from cleanup_expired_sessions() so Server can tear down the connection. */
+    std::function<void(SocketType)> on_session_expired;
+
     /**
      * @class UserSession
      * @brief Represents an individual user's active session state.
@@ -121,7 +132,8 @@ private:
         void update_last_activity_time();
 
         /**
-         * @brief Gracefully shuts down and terminates the network session.
+         * @brief Releases session state. Does not close the socket -
+         * Server owns socket lifetime and closes it via closeConnection().
          */
         void terminate_session();
 
@@ -132,6 +144,12 @@ private:
          */
         const std::string& get_ip_str() const { return cached_ip_str; }
         const std::string& get_port_str() const { return cached_port_str; }
+
+        /**
+         * @brief Gets the socket owned by this session.
+         * @return The session's socket.
+         */
+        SocketType get_socket() const { return user_socket; }
 
     private:
         SocketType user_socket;                                  /**< The network socket for this specific user. */
