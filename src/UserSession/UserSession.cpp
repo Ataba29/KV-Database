@@ -43,6 +43,9 @@ void UserSessionManager::cleanup_expired_sessions() {
 
     for (auto it = users_sessions.begin(); it != users_sessions.end(); ) {
         if (it->second->is_expired()) {
+            // Notify Server before erasing so it can tear down
+            if(on_session_expired)
+                on_session_expired(it->second->get_socket());
             it = users_sessions.erase(it); // Terminate Will call Automatically
         } else {
             ++it;
@@ -53,6 +56,11 @@ void UserSessionManager::cleanup_expired_sessions() {
 void UserSessionManager::close_all_sessions() {
     std::unique_lock lock(this->mutex); // Write Lock
     this->users_sessions.clear();
+}
+
+
+void UserSessionManager::set_on_session_expired(std::function<void(SocketType)> cb) {
+    on_session_expired = std::move(cb);
 }
 
 
@@ -79,7 +87,11 @@ void UserSessionManager::UserSession::update_last_activity_time() {
 }
 
 void UserSessionManager::UserSession::terminate_session() {
-    CloseSocket(user_socket);
+    /**  Socket closure is Server's responsibility (see closeConnection()).
+    Closing it here would race Server's connections/eventLoop bookkeeping. */
+
+    
+    // CloseSocket(user_socket);
 }
 
 bool UserSessionManager::UserSession::is_expired() const {

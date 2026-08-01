@@ -33,6 +33,7 @@ public:
     void add(SocketType sock) override;
     void remove(SocketType sock) override;
     int wait(std::vector<EventLoopEntry> &out) override;
+    bool rearm(SocketType sock) override;
 
 private:
     /// File descriptor for the epoll instance itself.

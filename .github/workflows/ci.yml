@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-linux:
+    name: Build & Test (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  build-windows:
+    name: Build & Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  integration-test:
+    name: Integration Tests (Docker)
+    runs-on: ubuntu-24.04
+    needs: build-linux
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r src/Tests/integration/requirements.txt
+
+      - name: Build Docker image
+        run: docker build -t byteforge:ci .
+
+      - name: Run ByteForge container
+        run: docker run -d --name byteforge -p 6625:6625 byteforge:ci
+
+      - name: Wait for server to be ready
+        run: |
+          for i in {1..30}; do
+            (echo > /dev/tcp/127.0.0.1/6625) 2>/dev/null && break
+            sleep 1
+          done
+
+      - name: Run integration tests
+        run: pytest src/Tests/integration -v
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker logs byteforge
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f byteforge

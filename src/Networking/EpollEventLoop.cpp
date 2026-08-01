@@ -18,7 +18,7 @@ EpollEventLoop::~EpollEventLoop()
 void EpollEventLoop::add(SocketType sock)
 {
     epoll_event ev{};
-    ev.events = EPOLLIN; // watch for "readable" (level-triggered by default)
+    ev.events = EPOLLIN | EPOLLONESHOT; // watch for "readable", (intentionally "mutes" the socket after the first notification)
     ev.data.fd = sock;
 
     epoll_ctl(epollFd, EPOLL_CTL_ADD, sock, &ev);
@@ -65,6 +65,15 @@ int EpollEventLoop::wait(std::vector<EventLoopEntry> &out)
     }
 
     return numReady;
+}
+
+bool EpollEventLoop::rearm(SocketType sock)
+{
+    epoll_event ev{};
+    ev.events = EPOLLIN | EPOLLONESHOT;
+    ev.data.fd = sock;
+
+    return epoll_ctl(epollFd, EPOLL_CTL_MOD, sock, &ev) == 0;
 }
 
 #endif //_WIN32

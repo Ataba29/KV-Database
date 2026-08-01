@@ -22,6 +22,12 @@ struct Connection
 
     /// The session key identifying this client's UserSession entry.
     SessionKey sessionKey;
+
+    /// This is the command of the user (Used for fragmentation management)
+    std::string commandBuffer;
+
+    Connection(SocketType sock, SessionKey key)
+        : socket(sock), sessionKey(key) {}
 };
 
 #endif // CONNECTION_H

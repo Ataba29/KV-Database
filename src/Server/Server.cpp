@@ -11,6 +11,10 @@ Server::Server(int port) : port(port), serverSocket(INVALID_SOCKET),
 
     eventLoop = makeEventLoop();
 
+    userSessionManager.set_on_session_expired(
+        [this](SocketType sock)
+        { onSessionExpired(sock); });
+
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -123,7 +127,7 @@ void Server::acceptClients()
             CloseSocket(AcceptSocket);
             continue;
         }
-        connections[AcceptSocket] = Connection{AcceptSocket, active_key};
+        connections[AcceptSocket] = std::make_shared<Connection>(AcceptSocket, active_key);
         eventLoop->add(AcceptSocket);
         std::cout << "[SERVER] Client connected and registered!\n";
     }
@@ -136,6 +140,9 @@ void Server::stop()
     std::cout << "[SERVER] Stop requested...\n";
 
     running = false;
+    for (auto &[sock, conn] : connections)
+        CloseSocket(sock);
+    connections.clear();
     userSessionManager.close_all_sessions();
     CloseSocket(serverSocket);
     // Forces accept() loop to unblock by breaking the file descriptor channel
@@ -156,6 +163,18 @@ void Server::runEventLoop()
 
     while (running)
     {
+        // Close all the expired connections
+        {
+            std::vector<SocketType> close;
+            {
+                std::lock_guard<std::mutex> lock(expiredMutex);
+                close.swap(expiredSockets);
+            }
+            for (auto &sock : close){
+                std::cout << "[SERVER] Closing expired connection, socket " << sock << "\n";
+                closeConnection(sock);
+            }
+        }
         int numEvents = eventLoop->wait(events);
         if (numEvents == -1)
             continue; // wait() itself failed, try again
@@ -165,27 +184,14 @@ void Server::runEventLoop()
             if (entry.event == IOEvent::Readable)
             {
                 auto it = connections.find(entry.socket);
-                if (it == connections.end())
-                    continue; // already cleaned up
+                if (it == connections.end()) continue;
 
-                {
-                    std::lock_guard<std::mutex> lock(busyMutex);
-                    // A job for this socket is already queued or running -
-                    // skip this notification. Level-triggered epoll will
-                    // notify us again next wait() if data is still unread.
-                    if (busySockets.count(entry.socket))
-                        continue;
-                    busySockets.insert(entry.socket);
-                }
-
-                Connection conn = it->second; // small struct, cheap to copy
-                tpool.acceptJob([this, conn]()
-                                {
-                                    messageHandler(conn.socket, conn.sessionKey);
-                                    std::lock_guard<std::mutex> lock(busyMutex);
-                                    busySockets.erase(conn.socket); });
-            }
-            else // HangUp or Error
+                std::shared_ptr<Connection> user_connection = it->second; // No Copy
+                // wont fire again until we re-arm it.
+                tpool.acceptJob([this, conn = std::move(user_connection)] {
+                    messageHandler(conn);
+                });
+            } else // HangUp or Error
             {
                 closeConnection(entry.socket);
             }
@@ -200,21 +206,22 @@ void Server::closeConnection(SocketType sock)
     auto it = connections.find(sock);
     if (it != connections.end())
     {
-        userSessionManager.remove_session(it->second.sessionKey);
+        userSessionManager.remove_session(it->second->sessionKey);
         connections.erase(it);
     }
 
     CloseSocket(sock);
 }
 
-void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKey)
+void Server::messageHandler(std::shared_ptr<Connection> clientConnection)
 {
     std::cout << "[CLIENT] Handling client message\n";
 
-    char buffer[1024];
+    char tempBuffer[1024];
+    SocketType clientSocket = clientConnection->socket;
 
     // On Linux, the buffer is safely passed to standard recv
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+    int bytesReceived = recv(clientSocket, tempBuffer, sizeof(tempBuffer), 0);
 
     if (bytesReceived == 0)
     {
@@ -230,22 +237,37 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
             // Nothing to read right now - a different job for this socket
             // already drained it, or epoll notified us before this job
             // got scheduled. Not an error, just nothing to do.
+            this->rearmSocket(clientSocket);
             return;
         }
         std::cout << "[CLIENT] recv error, disconnecting\n";
         closeConnection(clientSocket);
         return;
     }
-    
-    // Tell compiler that bytesReceived is greater than 0 so it wont do optimizations.
-    [[assume(bytesReceived > 0)]];
-    userSessionManager.update_activity(sessionKey);
+
+    clientConnection->commandBuffer.append(tempBuffer, bytesReceived);
+
+    if (clientConnection->commandBuffer.length() > this->MAX_COMMAND_BUFFER_LENGTH) {
+        std::cout << "[CLIENT] Client is abusing the command buffer disconnecting them\n";
+        closeConnection(clientSocket);
+        return;
+    }
+
+    if (clientConnection->commandBuffer.find('\n') == std::string::npos) {
+        this->rearmSocket(clientSocket);
+        return;
+    }
+
+
+
+    userSessionManager.update_activity(clientConnection->sessionKey);
 
     std::cout << "[CLIENT] Received " << bytesReceived << " bytes\n";
-    std::string message(buffer, bytesReceived);
+    std::string message = clientConnection->commandBuffer;
     std::cout << "[CLIENT] Message: " << message << "\n";
     std::istringstream iss(message);
     std::string command, key, value;
+    clientConnection->commandBuffer.clear();
 
     iss >> command;
     iss >> key;
@@ -263,6 +285,7 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         {
             std::string response = "Empty Value Recieved, Try again\n";
             send(clientSocket, response.c_str(), response.length(), 0);
+            this->rearmSocket(clientSocket);
             return;
         }
 
@@ -303,4 +326,23 @@ void Server::messageHandler(SocketType clientSocket, const SessionKey &sessionKe
         std::string response = "No command was received\n";
         send(clientSocket, response.c_str(), response.length(), 0);
     }
+
+    //Re-enable epoll notifications for the next command from this client
+    this->rearmSocket(clientSocket);
+}
+
+void Server::rearmSocket(SocketType clientSocket)
+{
+    if (!eventLoop->rearm(clientSocket))
+    {
+        std::cout << "[SERVER] Failed to re-arm socket " << clientSocket << ", closing.\n";
+        closeConnection(clientSocket);
+    }
+}
+
+void Server::onSessionExpired(SocketType sock)
+{
+    std::cout << "[SERVER] Session expired, queuing socket " << sock << " for close\n";
+    std::lock_guard<std::mutex> lock(expiredMutex);
+    expiredSockets.push_back(sock);
 }

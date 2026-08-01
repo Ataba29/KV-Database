@@ -9,7 +9,7 @@
 #include <flat_map>
 #include <flat_set>
 
-#include "UserSessionBackgroundWorker.h"
+#include "../Worker/UserSessionBackgroundWorker.h"
 #include "../RAM/HashMap.h"
 #include "../Storage/Persistence.h"
 #include "../Worker/ThreadPool.h"
@@ -26,6 +26,38 @@
  */
 class Server
 {
+private:
+    SocketType serverSocket; /**< The main listening socket */
+    sockaddr_in serverAddr;  /**< Server address structure */
+    int port;                /**< Port the server listens on */
+
+    std::atomic<bool> running; /**< Controls whether the server is running */
+
+    HashMap hashMap;                                            /** Server owns an instance of the hashmap */
+    Persistence pers;                                           /** Server owns an instance of persistance class */
+    ThreadPool tpool;                                           /** Server owns an instance of ThreadPool class */
+    SnapshotScheduler ss;                                       /** Server owns an instance of SnapshotScheduler class */
+    RateLimiter rt;                                             /** Server owns an instance of RateLimter class */
+    UserSessionManager userSessionManager;                      /** Managing User Sessions */
+    UserSessionBackgroundWorker user_session_background_worker; /** Background worker that sweeps expired sessions*/
+    std::unordered_map<SocketType, std::shared_ptr<Connection>> connections;     /** Client connections, keyed by socket */
+    std::unique_ptr<IEventLoop> eventLoop;                      /** Watches all client sockets for readiness */
+    std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
+    std::mutex expiredMutex;                                    /** Mutex to guard the expiredSockets vector */
+    std::vector<SocketType> expiredSockets;                     /** Notifys the event loop of connections to remove */
+
+    /**
+     * @brief Runs continuously on eventLoopThread: waits for socket readiness
+     *        and dispatches ready clients to the thread pool.
+     */
+    void runEventLoop();
+
+    /**
+     * @brief Fully tears down a client connection: stops watching it, removes
+     *        its session and Connection entry, and closes the socket.
+     * @param sock The socket to close.
+     */
+    void closeConnection(SocketType sock);
 
 public:
     /**
@@ -59,43 +91,29 @@ public:
     /**
      * @brief Handles one ready-to-read event for a client: one recv() call,
      *        command parsing, and response.
-     * @param clientSocket The socket that has data available.
-     * @param sessionKey The session tied to this client.
+     * @param userConnection The user connection
+     *
      */
-    void messageHandler(SocketType clientSocket, const SessionKey &sessionKey);
-
-private:
-    SocketType serverSocket; /**< The main listening socket */
-    sockaddr_in serverAddr;  /**< Server address structure */
-    int port;                /**< Port the server listens on */
-
-    std::atomic<bool> running; /**< Controls whether the server is running */
-
-    HashMap hashMap;                                            /** Server owns an instance of the hashmap */
-    Persistence pers;                                           /** Server owns an instance of persistance class */
-    ThreadPool tpool;                                           /** Server owns an instance of ThreadPool class */
-    SnapshotScheduler ss;                                       /** Server owns an instance of SnapshotScheduler class */
-    RateLimiter rt;                                             /** Server owns an instance of RateLimter class */
-    UserSessionManager userSessionManager;                      /** Managing User Sessions */
-    UserSessionBackgroundWorker user_session_background_worker; /** Background worker that sweeps expired sessions*/
-    std::flat_map<SocketType, Connection> connections;     /** Client connections, keyed by socket */
-    std::unique_ptr<IEventLoop> eventLoop;                      /** Watches all client sockets for readiness */
-    std::thread eventLoopThread;                                /** Thread that runs runEventLoop() */
-    std::mutex busyMutex;                                       /** Guards busySockets */
-    std::flat_set<SocketType> busySockets;                 /** Sockets with a recv job already queued/running */
+    void messageHandler(std::shared_ptr<Connection> userConnection);
 
     /**
-     * @brief Runs continuously on eventLoopThread: waits for socket readiness
-     *        and dispatches ready clients to the thread pool.
+     * @brief Adds sockets that are expired into the expired vector to be removed later by eventloop
+     * @param sock which is the client socket that is to be removed
      */
-    void runEventLoop();
+    void onSessionExpired(SocketType sock);
 
     /**
-     * @brief Fully tears down a client connection: stops watching it, removes
-     *        its session and Connection entry, and closes the socket.
-     * @param sock The socket to close.
+    * What it is: An explicit call (epoll_ctl with EPOLL_CTL_MOD) executed when a thread finishes its work.
+    *    What it does: Unmutes the socket so epoll can start listening for network activity again.
+     *   Why we use it: Because EPOLLONESHOT completely mutes the socket, it will stay dead forever unless re-armed.
+     *   Every exit path in your thread—whether it finished a full message or is waiting for more bytes (fragmentation)—must call rearm().
+     *
+     * @param clientSocket
      */
-    void closeConnection(SocketType sock);
+    void rearmSocket(SocketType clientSocket);
+
+
+    uint16_t MAX_COMMAND_BUFFER_LENGTH = 2024;
 };
 
 #endif
